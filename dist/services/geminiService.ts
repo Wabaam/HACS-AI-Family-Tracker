@@ -1,8 +1,16 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { TripData } from '../types';
+import { loadConfiguration } from './homeAssistantService';
 
 let aiClient: GoogleGenAI | null = null;
 let clientInitializationError: Error | null = null;
+
+// This function is called when the API key is updated
+export function resetAiClient() {
+  aiClient = null;
+  clientInitializationError = null;
+}
 
 // Lazily initialize the AI client on first use
 function getAiClient(): GoogleGenAI {
@@ -13,10 +21,11 @@ function getAiClient(): GoogleGenAI {
     return aiClient;
   }
 
-  const API_KEY = process.env.API_KEY;
+  const config = loadConfiguration();
+  const API_KEY = config?.apiKey;
 
   if (!API_KEY) {
-    clientInitializationError = new Error("Gemini API Key not found. Please ensure it is configured in your environment.");
+    clientInitializationError = new Error("Gemini API Key not found. Please provide a valid API key in the settings.");
     console.error(clientInitializationError.message);
     throw clientInitializationError;
   }
@@ -26,7 +35,7 @@ function getAiClient(): GoogleGenAI {
     return aiClient;
   } catch (error) {
     console.error("Error initializing GoogleGenAI client:", error);
-    clientInitializationError = new Error("Failed to initialize Gemini client.");
+    clientInitializationError = new Error("Failed to initialize Gemini client. The API key might be invalid.");
     throw clientInitializationError;
   }
 }
@@ -71,8 +80,11 @@ export async function generateDrivingSummary(tripData: TripData): Promise<string
     return response.text;
   } catch (error) {
     console.error("Error generating driving summary:", error);
-    // Re-throw the original, more specific error if it exists
-    throw clientInitializationError || new Error("Failed to generate summary from Gemini API.");
+    if (error instanceof Error) {
+        throw new Error(`Failed to generate summary: ${error.message}`);
+    }
+    // Re-throw a user-friendly error
+    throw new Error("Failed to generate summary from Gemini API. Check your API key and network connection.");
   }
 }
 
