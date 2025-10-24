@@ -1,7 +1,8 @@
 
 import { User, Zone, TripData, HassEntity, ZoneEvent } from '../types';
+import { resetAiClient } from './geminiService';
 
-const CONFIG_STORAGE_KEY = 'familyMapperConfig_trackedEntities';
+const CONFIG_STORAGE_KEY = 'familyMapperConfig_v2';
 
 // MOCK DATABASE of all available entities in a user's Home Assistant
 const allHassEntities: HassEntity[] = [
@@ -96,14 +97,39 @@ export const getAvailablePersonEntities = (): HassEntity[] => {
   return allHassEntities;
 };
 
-export const saveConfiguration = (entityIds: string[]) => {
-  localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(entityIds));
+export const saveConfiguration = (entityIds: string[], apiKey: string) => {
+  const config = { entityIds, apiKey };
+  localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
 };
 
-export const loadConfiguration = (): string[] | null => {
+export const loadConfiguration = (): { entityIds: string[], apiKey: string } | null => {
   const storedConfig = localStorage.getItem(CONFIG_STORAGE_KEY);
-  return storedConfig ? JSON.parse(storedConfig) : null;
+  if (!storedConfig) return null;
+  try {
+    const config = JSON.parse(storedConfig);
+    // Basic validation
+    if (Array.isArray(config.entityIds) && typeof config.apiKey === 'string') {
+      return config;
+    }
+    return null;
+  } catch (e) {
+    console.error("Failed to parse configuration from localStorage", e);
+    return null;
+  }
 };
+
+export const updateApiKey = (apiKey: string) => {
+  const currentConfig = loadConfiguration();
+  if (currentConfig) {
+    saveConfiguration(currentConfig.entityIds, apiKey);
+    resetAiClient(); // Reset the client to force re-initialization with the new key
+  } else {
+    // This case should ideally not happen if the app is configured, but handle it just in case.
+    console.error("Cannot update API key: no existing configuration found.");
+    alert("Error: Could not find existing configuration to update.");
+  }
+};
+
 
 // --- Updated Data Functions ---
 
