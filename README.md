@@ -18,7 +18,8 @@ URL Path: You can leave this blank or give it a simple name like family-map.
 Make sure "Panel (1 card)" is selected. This is very important. It makes your card fill the entire screen.
 Click "Save". You'll now have a new, empty view.
 
-<img width="1257" height="1044" alt="AI-Family-Mapper-Readme" src="https://github.com/user-attachments/assets/5876dca2-2289-4519-aa38-9ad445c0aa5c" />
+<img width="636" height="909" alt="AI-Family-Mapper-Readme_Setup Model" src="https://github.com/user-attachments/assets/b1b0cb36-abf7-475b-afbc-76170d5d9008" />
+
 
 On this empty view, click the "ADD CARD" button in the center.
 The card picker will appear. Search for the "Webpage" card and select it.
