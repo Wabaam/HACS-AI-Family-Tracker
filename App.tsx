@@ -8,8 +8,10 @@ import ZonePanel from './components/ZonePanel';
 import AddZonePanel from './components/AddZonePanel';
 import ZoneList from './components/ZoneList';
 import Setup from './components/Setup';
+import SettingsPanel from './components/SettingsPanel';
 import { generateDrivingSummary as generateSummary, generateIconForZone } from './services/geminiService';
 import L from 'leaflet';
+import { Settings } from 'lucide-react';
 
 
 const App: React.FC = () => {
@@ -23,6 +25,7 @@ const App: React.FC = () => {
   const [tripSummary, setTripSummary] = useState<string | null>(null);
   const [isSummaryLoading, setIsSummaryLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
   
   // State for zone editor
   const [zoneEditorMode, setZoneEditorMode] = useState<'add' | 'edit' | null>(null);
@@ -42,8 +45,8 @@ const App: React.FC = () => {
   // Check for configuration on initial load
   useEffect(() => {
     const config = loadConfiguration();
-    if (config && config.length > 0) {
-      setTrackedEntities(config);
+    if (config && config.entityIds.length > 0 && config.apiKey) {
+      setTrackedEntities(config.entityIds);
       setIsConfigured(true);
     }
   }, []);
@@ -80,9 +83,9 @@ const App: React.FC = () => {
     }
   }, [selectedZoneId]);
 
-  const handleConfigurationComplete = (entityIds: string[]) => {
-    saveConfiguration(entityIds);
-    setTrackedEntities(entityIds);
+  const handleConfigurationComplete = (config: { selectedEntityIds: string[], apiKey: string }) => {
+    saveConfiguration(config.selectedEntityIds, config.apiKey);
+    setTrackedEntities(config.selectedEntityIds);
     setIsConfigured(true);
   };
 
@@ -113,8 +116,8 @@ const App: React.FC = () => {
     try {
       const summary = await generateSummary(tripData);
       setTripSummary(summary);
-    } catch (err) {
-      setError('Could not generate driving summary. Please try again.');
+    } catch (err: any) {
+      setError(err.message || 'Could not generate driving summary.');
       console.error(err);
     } finally {
       setIsSummaryLoading(false);
@@ -208,7 +211,7 @@ const App: React.FC = () => {
       handleCancelZoneEditor();
     } catch (err) {
       console.error("Failed to save zone:", err);
-      alert("An error occurred while saving the zone. Please try again.");
+      alert("An error occurred while saving the zone. The API key might be invalid.");
     } finally {
       setIsSavingZone(false);
     }
@@ -228,6 +231,8 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen font-sans">
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+      
       <aside className="w-full md:w-1/4 lg:w-1/5 h-full bg-secondary-background-color p-4 overflow-y-auto flex flex-col space-y-4">
         <div>
           <h2 className="text-xl font-bold mb-2 p-2">Family</h2>
@@ -263,16 +268,26 @@ const App: React.FC = () => {
         
         <div className="flex-grow"></div>
 
-        <AddZonePanel
-          mode={zoneEditorMode}
-          onStartAddZone={handleStartAddZone}
-          zoneDetails={editingZone}
-          onUpdateZoneDetails={handleUpdateEditingZoneDetails}
-          onSaveZone={handleSaveZone}
-          onCancel={handleCancelZoneEditor}
-          onDeleteZone={handleDeleteZone}
-          isSavingZone={isSavingZone}
-        />
+        <div className="space-y-2">
+            <AddZonePanel
+                mode={zoneEditorMode}
+                onStartAddZone={handleStartAddZone}
+                zoneDetails={editingZone}
+                onUpdateZoneDetails={handleUpdateEditingZoneDetails}
+                onSaveZone={handleSaveZone}
+                onCancel={handleCancelZoneEditor}
+                onDeleteZone={handleDeleteZone}
+                isSavingZone={isSavingZone}
+            />
+            <button
+                onClick={() => setShowSettings(true)}
+                className="w-full bg-card-background-color text-primary-text-color font-medium py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center border border-divider-color"
+                aria-label="Open Settings"
+                >
+                <Settings className="w-5 h-5 mr-2" />
+                Settings
+            </button>
+        </div>
       </aside>
       
       <main className="flex-grow h-full flex flex-col md:flex-row p-4 gap-4">
