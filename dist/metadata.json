@@ -1,8 +1,0 @@
-
-{
-  "name": "Family Mapper AI",
-  "description": "A Life360-style application that visualizes family members' locations, zones, and driving status, using mock Home Assistant data. It leverages the Gemini API to generate intelligent driving summaries for recent trips.",
-  "requestFramePermissions": [
-    "geolocation"
-  ]
-}
