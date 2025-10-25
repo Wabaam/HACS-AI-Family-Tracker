@@ -1,36 +1,20 @@
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
-<img width="1257" height="1044" alt="AI-Family-Mapper-Readme" src="https://github.com/user-attachments/assets/a054dfdd-b377-4a56-9f71-4ee50ee4e79a" />
+# Run and deploy your AI Studio app
 
-<img width="690" height="724" alt="image" src="https://github.com/user-attachments/assets/ee631085-ac0a-4131-822b-890b2b446ac8" />
+This contains everything you need to run your app locally.
 
+View your app in AI Studio: https://ai.studio/apps/drive/1TzJXoFN7J_1btsU5WOU3PprnlzWUVHzO
 
-Make sure you have HACS installed on your Home Assistant
-three dots upper right
-Add a custom repository
-Search for https:/
+## Run Locally
 
-
-Add the Panel to your Dashboard
-Navigate to your main dashboard in Home Assistant.
-
-Click the pencil in the top-right corner and select "Edit Dashboard".
-
-At the top of the screen (where your tabs are), click the big "+" button to add a new view.
-
-A "Create View" dialog will pop up. Fill it out:
-Make sure "Panel (1 card)" is selected. This is very important. It makes your card fill the entire screen.
-Title: Give it a name, like Family Map.
-Icon: Choose an icon, like mdi:map-marker-radius.
-URL Path: You can leave this blank or give it a simple name like family-map.
-
-Click "Save". You'll now have a new, empty view.
-
-<img width="636" height="909" alt="AI-Family-Mapper-Readme_Setup Model" src="https://github.com/user-attachments/assets/b1b0cb36-abf7-475b-afbc-76170d5d9008" />
+**Prerequisites:**  Node.js
 
 
-On this empty view, click the "ADD CARD" button in the center.
-
-The card picker will appear. Search for the "Webpage" card and select it.
-
-Now, configure the Webpage card. This is the most critical step:
-URL: Enter the path to the index.html file HACS downloaded.  The format is always /hacsfiles/HACS-AI-Family-Tracker/dist/index.html
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

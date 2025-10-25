@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, Zone, TripData, ZoneEvent } from './types';
-import { getInitialData, getUpdatedUsers, loadConfiguration, saveConfiguration, getEventsForZone } from './services/homeAssistantService';
+import { getInitialData, getUpdatedUsers, loadConfiguration, saveConfiguration, getEventsForZone, updateApiKey } from './services/homeAssistantService';
 import MapComponent from './components/MapComponent';
 import UserPanel from './components/UserPanel';
 import ZonePanel from './components/ZonePanel';
@@ -45,7 +44,8 @@ const App: React.FC = () => {
   // Check for configuration on initial load
   useEffect(() => {
     const config = loadConfiguration();
-    if (config && config.entityIds.length > 0 && config.apiKey) {
+    // FIX: Re-added apiKey check for proper configuration validation.
+    if (config && config.apiKey && config.entityIds.length > 0) {
       setTrackedEntities(config.entityIds);
       setIsConfigured(true);
     }
@@ -83,10 +83,18 @@ const App: React.FC = () => {
     }
   }, [selectedZoneId]);
 
-  const handleConfigurationComplete = (config: { selectedEntityIds: string[], apiKey: string }) => {
-    saveConfiguration(config.selectedEntityIds, config.apiKey);
+  // FIX: Re-added apiKey to configuration logic.
+  const handleConfigurationComplete = (config: { apiKey: string, selectedEntityIds: string[] }) => {
+    saveConfiguration({ apiKey: config.apiKey, entityIds: config.selectedEntityIds });
     setTrackedEntities(config.selectedEntityIds);
     setIsConfigured(true);
+  };
+  
+  const handleApiKeyUpdate = (newApiKey: string) => {
+    updateApiKey(newApiKey);
+    setShowSettings(false);
+    // Optionally, show a success message
+    alert("API Key updated successfully!");
   };
 
   const selectedUser = users.find(u => u.id === selectedUserId) || null;
@@ -231,7 +239,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen font-sans">
-      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} onSave={handleApiKeyUpdate} />}
       
       <aside className="w-full md:w-1/4 lg:w-1/5 h-full bg-secondary-background-color p-4 overflow-y-auto flex flex-col space-y-4">
         <div>
@@ -279,11 +287,12 @@ const App: React.FC = () => {
                 onDeleteZone={handleDeleteZone}
                 isSavingZone={isSavingZone}
             />
+            {/* FIX: Re-added settings button. */}
             <button
                 onClick={() => setShowSettings(true)}
                 className="w-full bg-card-background-color text-primary-text-color font-medium py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center border border-divider-color"
-                aria-label="Open Settings"
-                >
+                aria-label="Open settings"
+            >
                 <Settings className="w-5 h-5 mr-2" />
                 Settings
             </button>
