@@ -1,6 +1,9 @@
 
 <img width="1257" height="1044" alt="AI-Family-Mapper-Readme" src="https://github.com/user-attachments/assets/a054dfdd-b377-4a56-9f71-4ee50ee4e79a" />
 
+<img width="690" height="724" alt="image" src="https://github.com/user-attachments/assets/ee631085-ac0a-4131-822b-890b2b446ac8" />
+
+
 Make sure you have HACS installed on your Home Assistant
 three dots upper right
 Add a custom repository
