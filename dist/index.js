@@ -1,13 +1,44 @@
-
 (() => {
-  // --- GLOBALS ---
-  // All component and library references have been updated to use the global variables
-  // loaded from the script tags in `index.html`.
-  const { useState, useEffect, useCallback, useMemo, StrictMode, Fragment } = (window).React;
-  const { createRoot } = (window).ReactDOM;
-  const { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } = (window).ReactLeaflet;
-  const { Settings, Users, CheckCircle, KeyRound, LogIn, LogOut, History: HistoryIcon, Clock, PlusCircle, X, Check, MapPin, Trash2, Loader, Battery, Wind, BarChart, AlertTriangle, ShieldCheck, Landmark } = (window).lucide;
-  const { GoogleGenAI } = (window).google.generativeai;
+  const rootElement = document.getElementById('root');
+  if (!rootElement) {
+    console.error("Could not find root element to mount app.");
+    return;
+  }
+
+  // Check for required global libraries
+  const requiredLibs = {
+    React: window.React,
+    ReactDOM: window.ReactDOM,
+    ReactLeaflet: window.ReactLeaflet,
+    lucide: window.lucide,
+    google: window.google?.generativeai?.GoogleGenAI
+  };
+
+  const missingLibs = Object.entries(requiredLibs)
+    .filter(([_, lib]) => !lib)
+    .map(([name, _]) => name);
+
+  if (missingLibs.length > 0) {
+    console.error("Required libraries are missing:", missingLibs);
+    rootElement.innerHTML = `
+      <div style="color: #f87171; background-color: #450a0a; border: 1px solid #991b1b; padding: 20px; margin: 20px; border-radius: 8px; font-family: sans-serif;">
+        <h2 style="font-weight: bold; font-size: 1.2em;">Application Failed to Load</h2>
+        <p>The following required libraries could not be loaded, which is usually caused by a network issue or a browser extension blocking the CDN:</p>
+        <ul style="list-style-type: disc; padding-left: 30px; margin-top: 10px;">
+          ${missingLibs.map(lib => `<li>${lib}</li>`).join('')}
+        </ul>
+        <p style="margin-top: 15px;">Please check your internet connection, disable any ad-blockers for this page, and perform a hard refresh (Ctrl+F5 or Cmd+Shift+R).</p>
+      </div>`;
+    return;
+  }
+  
+  // --- GLOBALS (now that we know they exist) ---
+  const React = window.React;
+  const { useState, useEffect, useCallback, useMemo, StrictMode, Fragment } = React;
+  const { createRoot } = window.ReactDOM;
+  const { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } = window.ReactLeaflet;
+  const { Settings, Users, CheckCircle, KeyRound, LogIn, LogOut, History: HistoryIcon, Clock, PlusCircle, X, Check, MapPin, Trash2, Loader, Battery, Wind, BarChart, AlertTriangle, ShieldCheck, Landmark } = window.lucide;
+  const { GoogleGenAI } = window.google.generativeai;
 
 
   // --- SERVICES ---
@@ -112,9 +143,9 @@
   };
 
   const MapComponent = ({ users, zones, onUserSelect, selectedUser, selectedZone, zoneEditorMode, onMapClickForZone, onSelectZoneForEdit, editingZonePreview, onEditingZoneLocationChange }) => {
-    delete (window).L.Icon.Default.prototype._getIconUrl;
-    (window).L.Icon.Default.mergeOptions({ iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png', iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png', shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png' });
-    const createAvatarIcon = (url, sel) => (window).L.divIcon({ html: `<img src="${url}" style="width: 40px; height: 40px; border-radius: 50%; ${sel ? 'border: 3px solid #3b82f6;' : 'border: 2px solid #6b7280;'} box-shadow: 0 2px 5px rgba(0,0,0,0.5);" />`, className: '', iconSize: [40, 40], iconAnchor: [20, 20], popupAnchor: [0, -20] });
+    delete window.L.Icon.Default.prototype._getIconUrl;
+    window.L.Icon.Default.mergeOptions({ iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png', iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png', shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png' });
+    const createAvatarIcon = (url, sel) => window.L.divIcon({ html: `<img src="${url}" style="width: 40px; height: 40px; border-radius: 50%; ${sel ? 'border: 3px solid #3b82f6;' : 'border: 2px solid #6b7280;'} box-shadow: 0 2px 5px rgba(0,0,0,0.5);" />`, className: '', iconSize: [40, 40], iconAnchor: [20, 20], popupAnchor: [0, -20] });
     const MapEventsHandler = () => { useMapEvents({ click: (e) => { if (zoneEditorMode === 'add') onMapClickForZone(e.latlng); }}); return null; };
     const MapUpdater = () => { const map = useMap(); useEffect(() => { if (selectedUser) map.flyTo([selectedUser.location.lat, selectedUser.location.lng], map.getZoom(), { animate: true, duration: 1 }); }, [selectedUser]); useEffect(() => { if (selectedZone) map.flyTo([selectedZone.location.lat, selectedZone.location.lng], 15, { animate: true, duration: 1 }); }, [selectedZone]); useEffect(() => { const c = map.getContainer(); if (c) c.style.cursor = zoneEditorMode === 'add' ? 'crosshair' : ''; }, [zoneEditorMode]); return null; };
     return React.createElement(MapContainer, { center: [34.0522, -118.2437], zoom: 13, className: "h-full w-full" }, React.createElement(TileLayer, { url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", attribution: '&copy; OpenStreetMap &copy; CARTO' }), zones.map((zone) => { const isEditing = editingZonePreview.id === zone.id, isSelected = selectedZone?.id === zone.id, color = isEditing ? '#fb923c' : (isSelected ? '#a855f7' : '#3b82f6'); return React.createElement(Circle, { key: zone.id, center: [zone.location.lat, zone.location.lng], radius: zone.radius, pathOptions: { color, fillColor: color, fillOpacity: isSelected || isEditing ? 0.3 : 0.2, weight: isSelected || isEditing ? 3 : 2 }, eventHandlers: { click: () => onSelectZoneForEdit(zone) } }, React.createElement(Popup, null, `${zone.icon} ${zone.name}`)); }), users.map((user) => React.createElement(Marker, { key: user.id, position: [user.location.lat, user.location.lng], icon: createAvatarIcon(user.avatar, selectedUser?.id === user.id), eventHandlers: { click: () => onUserSelect(user) } }, React.createElement(Popup, null, React.createElement('div', { className: "text-center font-bold" }, user.name), React.createElement('div', null, `${user.status} ${user.speed > 0 ? `(${user.speed} mph)` : ''}`)))), editingZonePreview.location && React.createElement(Fragment, null, React.createElement(Marker, { position: editingZonePreview.location, draggable: zoneEditorMode === 'edit', eventHandlers: { drag: (e) => zoneEditorMode === 'edit' && onEditingZoneLocationChange(e.target.getLatLng()) } }), React.createElement(Circle, { center: editingZonePreview.location, radius: editingZonePreview.radius, pathOptions: { color: '#fb923c', fillColor: '#fb923c', fillOpacity: 0.4 } })), React.createElement(MapEventsHandler, null), React.createElement(MapUpdater, null));
@@ -174,7 +205,7 @@
 
     const handleStartAddZone = useCallback(() => { setSelectedUserId(null); setSelectedZoneId(null); setZoneEditorMode('add'); setEditingZone({ id: undefined, location: null, radius: 200, name: '' }); }, []);
     const handleMapClickForZone = useCallback((latlng) => { if (zoneEditorMode === 'add') setEditingZone(p => ({ ...p, location: latlng })); }, [zoneEditorMode]);
-    const handleSelectZoneForEdit = useCallback((zone) => { setSelectedUserId(null); setSelectedZoneId(null); setZoneEditorMode('edit'); setEditingZone({ id: zone.id, name: zone.name, radius: zone.radius, location: (window).L.latLng(zone.location.lat, zone.location.lng) }); }, []);
+    const handleSelectZoneForEdit = useCallback((zone) => { setSelectedUserId(null); setSelectedZoneId(null); setZoneEditorMode('edit'); setEditingZone({ id: zone.id, name: zone.name, radius: zone.radius, location: window.L.latLng(zone.location.lat, zone.location.lng) }); }, []);
     const handleUpdateEditingZoneDetails = useCallback((details) => setEditingZone(p => ({ ...p, ...details })), []);
     const handleCancelZoneEditor = useCallback(() => { setZoneEditorMode(null); setEditingZone({ id: undefined, location: null, radius: 200, name: '' }); }, []);
     
@@ -199,8 +230,6 @@
   };
 
   // --- RENDER ---
-  const rootElement = document.getElementById('root');
-  if (!rootElement) throw new Error("Could not find root element to mount app.");
-  const root = createRoot(rootElement);
-  root.render(React.createElement(StrictMode, null, React.createElement(App, null)));
+  const finalRoot = createRoot(rootElement);
+  finalRoot.render(React.createElement(StrictMode, null, React.createElement(App, null)));
 })();
