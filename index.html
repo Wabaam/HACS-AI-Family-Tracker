@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Family Mapper AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+     crossorigin=""/>
+    <style>
+      :root {
+        --primary-color: #3b82f6; /* blue-500 */
+        --light-primary-color: #60a5fa; /* blue-400 */
+        --dark-primary-color: #2563eb; /* blue-600 */
+        --accent-color: #a855f7; /* purple-500 */
+        --primary-text-color: #e5e7eb; /* gray-200 */
+        --secondary-text-color: #9ca3af; /* gray-400 */
+        --disabled-text-color: #6b7280; /* gray-500 */
+        --primary-background-color: #111827; /* gray-900 */
+        --secondary-background-color: #1f2937; /* gray-800 */
+        --card-background-color: #1f2937; /* gray-800 */
+        --divider-color: #4b5563; /* gray-600 */
+        --error-color: #ef4444; /* red-500 */
+        --warning-color: #f97316; /* orange-500 */
+        --success-color: #22c55e; /* green-500 */
+        --ha-card-border-radius: 12px;
+        --ha-card-box-shadow: 0 2px 4px -1px rgba(0,0,0,.2), 0 4px 5px 0 rgba(0,0,0,.14), 0 1px 10px 0 rgba(0,0,0,.12);
+      }
+      body {
+        background-color: var(--primary-background-color);
+        color: var(--primary-text-color);
+        font-family: Roboto, "Helvetica Neue", Arial, sans-serif;
+        margin: 0;
+      }
+      .ha-card {
+        background-color: var(--card-background-color);
+        border-radius: var(--ha-card-border-radius);
+        box-shadow: var(--ha-card-box-shadow);
+        overflow: hidden;
+      }
+      .hoverable-item:hover { background-color: rgba(255, 255, 255, 0.05); }
+      .selected-item { background-color: var(--primary-color) !important; color: white !important; }
+      .selected-item-secondary { background-color: var(--accent-color) !important; color: white !important; }
+      .leaflet-container { height: 100%; width: 100%; }
+      .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--secondary-background-color); color: var(--primary-text-color); box-shadow: var(--ha-card-box-shadow); }
+      .leaflet-popup-close-button { color: var(--primary-text-color) !important; }
+      .entity-list-item { border: 1px solid var(--divider-color); border-radius: 8px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; cursor: pointer; transition: background-color 0.2s, border-color 0.2s; }
+      .entity-list-item:hover { background-color: var(--secondary-background-color); }
+      .entity-list-item.selected { background-color: rgba(59, 130, 246, 0.2); border-color: var(--primary-color); }
+      .ha-checkbox { -webkit-appearance: none; -moz-appearance: none; appearance: none; width: 20px; height: 20px; border: 2px solid var(--divider-color); border-radius: 4px; display: inline-block; position: relative; cursor: pointer; margin-right: 12px; flex-shrink: 0; }
+      .ha-checkbox:checked { background-color: var(--primary-color); border-color: var(--primary-color); }
+      .ha-checkbox:checked::after { content: ''; position: absolute; left: 6px; top: 2px; width: 5px; height: 10px; border: solid white; border-width: 0 3px 3px 0; transform: rotate(45deg); }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
