@@ -1,0 +1,117 @@
+import { GoogleGenAI } from "https://esm.sh/@google/genai@0.14.0";
+import { TripData } from '../types.ts';
+import { loadConfiguration } from './homeAssistantService.ts';
+
+let aiClient: any | null = null;
+let clientInitializationError: Error | null = null;
+
+// Lazily initialize the AI client on first use
+function getAiClient(): any {
+  if (clientInitializationError) {
+    throw clientInitializationError;
+  }
+  if (aiClient) {
+    return aiClient;
+  }
+
+  const config = loadConfiguration();
+  const API_KEY = config?.apiKey;
+
+  if (!API_KEY) {
+    clientInitializationError = new Error("Gemini API Key not found in configuration. Please set it up.");
+    console.error(clientInitializationError.message);
+    throw clientInitializationError;
+  }
+
+  try {
+    aiClient = new GoogleGenAI({ apiKey: API_KEY });
+    return aiClient;
+  } catch (error) {
+    console.error("Error initializing GoogleGenAI client:", error);
+    clientInitializationError = new Error("Failed to initialize Gemini client. The API key might be invalid.");
+    throw clientInitializationError;
+  }
+}
+
+export function resetAiClient() {
+  aiClient = null;
+  clientInitializationError = null;
+}
+
+export async function generateDrivingSummary(tripData: TripData): Promise<string> {
+  const model = 'gemini-2.5-flash';
+  
+  const prompt = `
+    You are a helpful assistant that analyzes driving data and creates friendly, easy-to-read summaries for a family safety app.
+
+    Based on the following trip data, generate a concise summary of about 3-4 sentences.
+    - The summary should be positive and encouraging. If there are risky behaviors like speeding, mention them gently as a friendly reminder.
+    - Start with a general overview of the trip (e.g., "Ben had a good drive from Work to Home today.").
+    - Mention the duration and distance.
+    - Highlight the maximum speed, comparing it to the speed limit.
+    - Note any other events like hard braking.
+    - Conclude with a safety-oriented sentence (e.g., "Overall, a safe trip!").
+    - Do not use markdown formatting. The output should be a single paragraph of plain text.
+
+    Trip Data:
+    - Driver: ${tripData.driverName}
+    - Date: ${tripData.date}
+    - Duration: ${tripData.durationMinutes} minutes
+    - Distance: ${tripData.distanceMiles} miles
+    - Start Location: ${tripData.startLocation}
+    - End Location: ${tripData.endLocation}
+    - Max Speed: ${tripData.maxSpeed} mph (in a ${tripData.speedLimit} mph zone)
+    - Average Speed: ${tripData.averageSpeed} mph
+    - Hard Braking Events: ${tripData.hardBrakingEvents}
+    - Rapid Acceleration Events: ${tripData.rapidAccelerationEvents}
+
+    Generate the summary now.
+  `;
+  
+  try {
+    const ai = getAiClient();
+    const response = await ai.models.generateContent({
+        model: model,
+        contents: prompt
+    });
+    return response.text;
+  } catch (error) {
+    console.error("Error generating driving summary:", error);
+    if (error instanceof Error) {
+        throw new Error(`Failed to generate summary: ${error.message}`);
+    }
+    throw new Error("Failed to generate summary from Gemini API. Check your API key and network connection.");
+  }
+}
+
+export async function generateIconForZone(zoneName: string): Promise<string> {
+  const model = 'gemini-2.5-flash';
+  const defaultEmoji = '📍';
+
+  const prompt = `
+    You are an expert emoji selector. Based on the provided place name, return a single, relevant emoji that best represents it.
+    - Return ONLY the emoji character itself, with no additional text, explanation, or formatting.
+    - If the name is ambiguous, choose the most common representation (e.g., "Park" -> 🌳).
+    - For a business name, choose an emoji that represents the business type (e.g., "Starbucks" -> ☕).
+
+    Place Name: "${zoneName}"
+
+    Emoji:
+  `;
+
+  try {
+    const ai = getAiClient();
+    const response = await ai.models.generateContent({
+        model: model,
+        contents: prompt
+    });
+    const emoji = response.text.trim();
+    if (emoji && emoji.length <= 4) {
+        return emoji;
+    }
+    return defaultEmoji;
+  } catch (error) {
+    console.error("Error generating zone icon:", error);
+    return defaultEmoji;
+  }
+}
