@@ -1,0 +1,31 @@
+{
+     "name": "Family Mapper AI",
+     "country": "US",
+     "render_readme": true,
+     "homeassistant": "2023.1.0",
+     "zip_release": true,
+     "filename": "index.html"
+   }
+```
+
+### Alternative Quick Fix:
+
+If you want to keep it simple without releases:
+
+1. **Remove version requirements from HACS:**
+   - Go to HACS → Family Mapper AI → three dots menu → "Redownload"
+   - Select "Show beta versions"
+   - Choose "master" or main branch instead of a version
+
+2. **Or reinstall as version-less:**
+   - Remove the integration from HACS
+   - Re-add it but when prompted for version, select "master" branch
+
+### Recommended Repository Structure:
+```
+your-github-repo/
+├── index.html  (main file)
+├── README.md                       (documentation)
+├── hacs.json                       (HACS config)
+├── LICENSE                         (MIT license)
+└── info.md                        (HACS info page)
