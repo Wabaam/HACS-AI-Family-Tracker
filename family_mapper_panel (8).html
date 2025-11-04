@@ -1,0 +1,3048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Family Mapper AI</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    
+    <style>
+        :root {
+            --primary-color: #3b82f6;
+            --primary-hover: #2563eb;
+            --success-color: #22c55e;
+            --warning-color: #f97316;
+            --error-color: #ef4444;
+            --bg-primary: #111827;
+            --bg-secondary: #1f2937;
+            --bg-tertiary: #374151;
+            --text-primary: #e5e7eb;
+            --text-secondary: #9ca3af;
+            --text-dim: #6b7280;
+            --border-color: #4b5563;
+            --sidebar-width: 380px;
+            --sidebar-collapsed: 56px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        #app {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+        
+        /* Header */
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 48px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            z-index: 1000;
+        }
+        
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        
+        .header-stats {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 12px;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success-color);
+        }
+        
+        .status-dot.warning {
+            background: var(--warning-color);
+        }
+        
+        .status-dot.pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.2); }
+        }
+        
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            display: flex;
+            margin-top: 48px;
+            position: relative;
+        }
+        
+        /* Map Container */
+        .map-container {
+            flex: 1;
+            position: relative;
+            transition: margin-right 0.3s ease;
+        }
+        
+        .map-container.sidebar-open {
+            margin-right: var(--sidebar-width);
+        }
+        
+        .map-container.sidebar-collapsed {
+            margin-right: var(--sidebar-collapsed);
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 48px;
+            right: 0;
+            bottom: 0;
+            width: var(--sidebar-width);
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border-color);
+            transition: transform 0.3s ease, width 0.3s ease;
+            z-index: 999;
+            display: flex;
+        }
+        
+        .sidebar.collapsed {
+            width: var(--sidebar-collapsed);
+        }
+        
+        .sidebar-nav {
+            width: var(--sidebar-collapsed);
+            background: var(--bg-tertiary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+        
+        .nav-item {
+            width: var(--sidebar-collapsed);
+            height: var(--sidebar-collapsed);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s;
+            position: relative;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+        }
+        
+        .nav-item:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+        
+        .nav-item.active {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .nav-item .icon {
+            font-size: 20px;
+        }
+        
+        .nav-item .badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            min-width: 18px;
+            height: 18px;
+            background: var(--error-color);
+            color: white;
+            border-radius: 9px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+        }
+        
+        .nav-item .tooltip {
+            position: absolute;
+            left: -120px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            border: 1px solid var(--border-color);
+        }
+        
+        .sidebar.collapsed .nav-item:hover .tooltip {
+            opacity: 1;
+        }
+        
+        .sidebar-content {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar.collapsed .sidebar-content {
+            display: none;
+        }
+        
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .sidebar-title {
+            font-size: 16px;
+            font-weight: 500;
+        }
+        
+        .sidebar-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        
+        .collapse-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        
+        .collapse-btn:hover {
+            background: var(--bg-tertiary);
+        }
+        
+        /* Sections */
+        .section {
+            margin-bottom: 16px;
+        }
+        
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .section-header:hover {
+            background: var(--bg-primary);
+        }
+        
+        .section-title {
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .section-arrow {
+            transition: transform 0.2s;
+        }
+        
+        .section.expanded .section-arrow {
+            transform: rotate(180deg);
+        }
+        
+        .section-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        
+        .section.expanded .section-content {
+            max-height: 2000px;
+        }
+        
+        .section-body {
+            padding: 12px 8px;
+        }
+        
+        /* Cards */
+        .card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .card:hover {
+            border-color: var(--primary-color);
+            transform: translateX(-2px);
+        }
+        
+        .card.active {
+            border-color: var(--primary-color);
+            background: rgba(59, 130, 246, 0.1);
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .card-title {
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .card-badge {
+            padding: 2px 8px;
+            background: var(--success-color);
+            color: white;
+            border-radius: 12px;
+            font-size: 11px;
+        }
+        
+        .card-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 4px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .card-detail {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        /* User Cards */
+        .user-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .user-info {
+            flex: 1;
+        }
+        
+        .user-name {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        
+        .user-status {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .user-status.driving {
+            color: var(--success-color);
+        }
+        
+        /* Zone Cards */
+        .zone-card {
+            position: relative;
+        }
+        
+        .zone-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        .zone-actions {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            display: flex;
+            gap: 4px;
+        }
+        
+        .zone-btn {
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .zone-btn:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        /* Forms */
+        .form-group {
+            margin-bottom: 12px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .form-input, .form-select {
+            width: 100%;
+            padding: 8px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+        
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+        
+        .form-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+        
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--bg-primary);
+        }
+        
+        .btn-danger {
+            background: var(--error-color);
+            color: white;
+        }
+        
+        .btn-block {
+            width: 100%;
+            justify-content: center;
+        }
+        
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .stat-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
+        /* Empty States */
+        .empty-state {
+            text-align: center;
+            padding: 32px 16px;
+            color: var(--text-secondary);
+        }
+        
+        .empty-icon {
+            font-size: 48px;
+            opacity: 0.3;
+            margin-bottom: 12px;
+        }
+        
+        .empty-title {
+            font-size: 16px;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+        
+        .empty-description {
+            font-size: 12px;
+        }
+        
+        /* Loading */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+        }
+        
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Responsive */
+        @keyframes slideRight {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(0); }
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+            }
+            
+            .sidebar.collapsed {
+                width: var(--sidebar-collapsed);
+            }
+            
+            .map-container.sidebar-open {
+                display: none;
+            }
+            
+            .header-stats {
+                display: none;
+            }
+        }
+        
+        /* Switch Toggle */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 20px;
+        }
+        
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--bg-tertiary);
+            transition: .4s;
+            border-radius: 20px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: var(--success-color);
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+        
+        /* Toast Notification */
+        .toast {
+            animation: slideUp 0.3s ease;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translate(-50%, 100px); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+        
+        @keyframes slideDown {
+            from { transform: translate(-50%, 0); opacity: 1; }
+            to { transform: translate(-50%, 100px); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-title">
+                <i class="fas fa-map-marked-alt"></i>
+                <span>Family Mapper AI</span>
+            </div>
+            <div class="header-stats">
+                <div class="status-indicator">
+                    <span class="status-dot" id="connectionDot"></span>
+                    <span id="connectionStatus">Connecting...</span>
+                </div>
+                <div class="status-indicator" id="activeTripsStatus" style="display: none;">
+                    <span class="status-dot pulse"></span>
+                    <span id="activeTripsCount">0 driving</span>
+                </div>
+                <div class="status-indicator" id="aiStatus" style="display: none;">
+                    <i class="fas fa-brain"></i>
+                    <span>AI Active</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Map -->
+            <div class="map-container sidebar-open" id="mapContainer">
+                <div id="map"></div>
+            </div>
+            
+            <!-- Sidebar -->
+            <div class="sidebar" id="sidebar">
+                <!-- Navigation -->
+                <div class="sidebar-nav">
+                    <button class="nav-item active" onclick="switchTab('users')" data-tab="users">
+                        <i class="fas fa-users icon"></i>
+                        <span class="tooltip">Family Members</span>
+                        <span class="badge" id="usersBadge" style="display: none;">0</span>
+                    </button>
+                    <button class="nav-item" onclick="switchTab('zones')" data-tab="zones">
+                        <i class="fas fa-map-pin icon"></i>
+                        <span class="tooltip">Zones</span>
+                    </button>
+                    <button class="nav-item" onclick="switchTab('driving')" data-tab="driving">
+                        <i class="fas fa-car icon"></i>
+                        <span class="tooltip">Driving</span>
+                        <span class="badge" id="drivingBadge" style="display: none;">0</span>
+                    </button>
+                    <button class="nav-item" onclick="switchTab('timeline')" data-tab="timeline">
+                        <i class="fas fa-clock icon"></i>
+                        <span class="tooltip">Timeline</span>
+                    </button>
+                    <button class="nav-item" onclick="switchTab('notifications')" data-tab="notifications">
+                        <i class="fas fa-bell icon"></i>
+                        <span class="tooltip">Notifications</span>
+                    </button>
+                    <button class="nav-item" onclick="switchTab('settings')" data-tab="settings">
+                        <i class="fas fa-cog icon"></i>
+                        <span class="tooltip">Settings</span>
+                    </button>
+                    
+                    <div style="flex: 1;"></div>
+                    
+                    <button class="nav-item" onclick="toggleSidebar()">
+                        <i class="fas fa-chevron-right icon" id="toggleIcon"></i>
+                        <span class="tooltip">Toggle Sidebar</span>
+                    </button>
+                </div>
+                
+                <!-- Content -->
+                <div class="sidebar-content">
+                    <!-- Users Tab -->
+                    <div class="tab-content" id="tab-users">
+                        <div class="sidebar-header">
+                            <div class="sidebar-title">Family Members</div>
+                        </div>
+                        <div class="sidebar-body" id="usersContent">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Zones Tab -->
+                    <div class="tab-content" id="tab-zones" style="display: none;">
+                        <div class="sidebar-header">
+                            <div class="sidebar-title">Zones</div>
+                        </div>
+                        <div class="sidebar-body">
+                            <button class="btn btn-primary btn-block" onclick="startZoneCreation()">
+                                <i class="fas fa-plus"></i> Create New Zone
+                            </button>
+                            <div id="zonesContent" style="margin-top: 16px;">
+                                <div class="empty-state">
+                                    <div class="empty-icon"><i class="fas fa-map-pin"></i></div>
+                                    <div class="empty-title">No Zones</div>
+                                    <div class="empty-description">Create zones to track locations</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Driving Tab -->
+                    <div class="tab-content" id="tab-driving" style="display: none;">
+                        <div class="sidebar-header">
+                            <div class="sidebar-title">Driving Activity</div>
+                        </div>
+                        <div class="sidebar-body">
+                            <div class="stats-grid" id="drivingStats">
+                                <div class="stat-card">
+                                    <div class="stat-value" id="todayTrips">0</div>
+                                    <div class="stat-label">Today's Trips</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" id="todayMiles">0</div>
+                                    <div class="stat-label">Miles Today</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" id="activeNow">0</div>
+                                    <div class="stat-label">Active Now</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" id="avgSpeed">0</div>
+                                    <div class="stat-label">Avg Speed</div>
+                                </div>
+                            </div>
+                            <div id="tripsContent">
+                                <div class="empty-state">
+                                    <div class="empty-icon"><i class="fas fa-car"></i></div>
+                                    <div class="empty-title">No Trips</div>
+                                    <div class="empty-description">Trips appear when family members drive</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Timeline Tab -->
+                    <div class="tab-content" id="tab-timeline" style="display: none;">
+                        <div class="sidebar-header">
+                            <div class="sidebar-title">Timeline</div>
+                        </div>
+                        <div class="sidebar-body">
+                            <div class="date-picker" style="display: flex; gap: 8px; margin-bottom: 12px;">
+                                <button class="date-btn active" onclick="setTimelineRange('today')" style="flex: 1; padding: 6px; background: var(--primary-color); border: 1px solid var(--primary-color); border-radius: 4px; color: white; font-size: 12px; cursor: pointer;">Today</button>
+                                <button class="date-btn" onclick="setTimelineRange('week')" style="flex: 1; padding: 6px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-secondary); font-size: 12px; cursor: pointer;">7 Days</button>
+                                <button class="date-btn" onclick="setTimelineRange('month')" style="flex: 1; padding: 6px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-secondary); font-size: 12px; cursor: pointer;">30 Days</button>
+                            </div>
+                            <div id="timelineContent">
+                                <div class="empty-state">
+                                    <div class="empty-icon"><i class="fas fa-clock"></i></div>
+                                    <div class="empty-title">No Events</div>
+                                    <div class="empty-description">Activity will appear here</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Notifications Tab -->
+                    <div class="tab-content" id="tab-notifications" style="display: none;">
+                        <div class="sidebar-header">
+                            <div class="sidebar-title">Smart Automations</div>
+                        </div>
+                        <div class="sidebar-body">
+                            <button class="btn btn-primary btn-block" onclick="addNotificationRule()">
+                                <i class="fas fa-plus"></i> <span id="notificationButtonText">Add Notification Rule</span>
+                            </button>
+                            
+                            <div id="notificationRules" style="margin-top: 16px;">
+                                <div class="empty-state">
+                                    <div class="empty-icon"><i class="fas fa-bell"></i></div>
+                                    <div class="empty-title">No Automations</div>
+                                    <div class="empty-description">Create smart notifications and automations</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Settings Tab -->
+                    <div class="tab-content" id="tab-settings" style="display: none;">
+                        <div class="sidebar-header">
+                            <div class="sidebar-title">Settings</div>
+                        </div>
+                        <div class="sidebar-body">
+                            <!-- Connection Section -->
+                            <div class="section expanded">
+                                <div class="section-header" onclick="toggleSection(this)">
+                                    <div class="section-title">
+                                        <i class="fas fa-plug"></i> Connection
+                                    </div>
+                                    <i class="fas fa-chevron-down section-arrow"></i>
+                                </div>
+                                <div class="section-content">
+                                    <div class="section-body">
+                                        <div class="form-group">
+                                            <label class="form-label">Home Assistant URL</label>
+                                            <input type="text" class="form-input" id="haUrl" placeholder="http://192.168.1.3:8123" />
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Access Token</label>
+                                            <input type="password" class="form-input" id="haToken" placeholder="Long-lived access token" />
+                                        </div>
+                                        <button class="btn btn-primary btn-block" onclick="saveConnection()">
+                                            <i class="fas fa-save"></i> Save & Connect
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Entity Selection Section -->
+                            <div class="section">
+                                <div class="section-header" onclick="toggleSection(this)">
+                                    <div class="section-title">
+                                        <i class="fas fa-list"></i> Entity Selection
+                                    </div>
+                                    <i class="fas fa-chevron-down section-arrow"></i>
+                                </div>
+                                <div class="section-content">
+                                    <div class="section-body">
+                                        <div class="form-label">Select entities to track:</div>
+                                        <div id="entitySelector" style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; background: var(--bg-primary);">
+                                            <div class="empty-state">
+                                                <div class="empty-description">Connect to Home Assistant first</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Features Section -->
+                            <div class="section">
+                                <div class="section-header" onclick="toggleSection(this)">
+                                    <div class="section-title">
+                                        <i class="fas fa-star"></i> Features
+                                    </div>
+                                    <i class="fas fa-chevron-down section-arrow"></i>
+                                </div>
+                                <div class="section-content">
+                                    <div class="section-body">
+                                        <div class="form-checkbox">
+                                            <input type="checkbox" id="enableTrips" checked />
+                                            <label for="enableTrips">Trip Detection</label>
+                                        </div>
+                                        <div class="form-checkbox">
+                                            <input type="checkbox" id="enableNotifications" checked />
+                                            <label for="enableNotifications">Notifications</label>
+                                        </div>
+                                        <div class="form-checkbox">
+                                            <input type="checkbox" id="enableAI" onchange="toggleAISettings()" />
+                                            <label for="enableAI">AI Summaries</label>
+                                        </div>
+                                        <div id="aiSettings" style="display: none; margin-top: 12px;">
+                                            <div class="form-group">
+                                                <label class="form-label">Gemini API Key</label>
+                                                <input type="password" class="form-input" id="geminiKey" placeholder="Your Gemini API key" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Trip Settings Section -->
+                            <div class="section">
+                                <div class="section-header" onclick="toggleSection(this)">
+                                    <div class="section-title">
+                                        <i class="fas fa-route"></i> Trip Detection
+                                    </div>
+                                    <i class="fas fa-chevron-down section-arrow"></i>
+                                </div>
+                                <div class="section-content">
+                                    <div class="section-body">
+                                        <div class="form-group">
+                                            <label class="form-label">Start Speed (mph)</label>
+                                            <input type="number" class="form-input" id="tripSpeed" value="5" min="1" max="20" />
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Stop Duration (seconds)</label>
+                                            <input type="number" class="form-input" id="tripStop" value="120" min="30" max="600" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Device Sensors Section -->
+                            <div class="section">
+                                <div class="section-header" onclick="toggleSection(this)">
+                                    <div class="section-title">
+                                        <i class="fas fa-mobile-alt"></i> Device Sensors
+                                    </div>
+                                    <i class="fas fa-chevron-down section-arrow"></i>
+                                </div>
+                                <div class="section-content">
+                                    <div class="section-body">
+                                        <div id="sensorList" style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; background: var(--bg-primary);">
+                                            <div class="empty-state">
+                                                <div class="empty-description">Connect to Home Assistant first</div>
+                                            </div>
+                                        </div>
+                                        <button class="btn btn-secondary btn-block" onclick="loadDeviceSensors()" style="margin-top: 8px;">
+                                            <i class="fas fa-sync"></i> Refresh Sensors
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- General Section -->
+                            <div class="section">
+                                <div class="section-header" onclick="toggleSection(this)">
+                                    <div class="section-title">
+                                        <i class="fas fa-sliders-h"></i> General
+                                    </div>
+                                    <i class="fas fa-chevron-down section-arrow"></i>
+                                </div>
+                                <div class="section-content">
+                                    <div class="section-body">
+                                        <div class="form-group">
+                                            <label class="form-label">Refresh Interval (seconds)</label>
+                                            <input type="number" class="form-input" id="refreshInterval" value="5" min="1" max="60" />
+                                        </div>
+                                        <button class="btn btn-secondary btn-block" onclick="saveAllSettings()">
+                                            <i class="fas fa-save"></i> Save All Settings
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Family Mapper Storage API (optional - falls back to localStorage) -->
+    <script>
+        // Load the storage API script from the same directory as this HTML file.
+        // A cache-busting query string ensures the latest version is loaded. If the script
+        // fails to load, the app will gracefully fall back to localStorage.
+        (function() {
+            const script = document.createElement('script');
+            script.src = 'storage-api.js?' + Date.now();
+            script.async = true;
+            script.onerror = function() {
+                console.log('Storage API not available, using localStorage fallback');
+            };
+            document.head.appendChild(script);
+        })();
+    </script>
+    
+    <script>
+        // ==========================================
+        // Family Mapper AI - Enhanced Version
+        // ==========================================
+        
+        'use strict';
+        
+        console.log('Family Mapper AI initializing...');
+        
+        // Global State
+            let map;
+            let markers = {};
+            let zoneCircles = {};
+            let tripPaths = {};
+            let currentTripPath = null;
+            
+            let users = [];
+            let zones = [];
+            let trips = [];
+            let activeTrips = {};
+            let zoneEvents = [];
+            let notificationRules = [];
+
+            // Pending zone change timestamps to implement a buffer before logging enter/leave events.
+            // When a user enters or leaves a zone, we record the time here and only log the event
+            // once the user has remained in that state for a defined buffer duration.
+            const zonePendingEnter = {};
+            const zonePendingLeave = {};
+            // Buffer duration in milliseconds (e.g., 15000ms = 15 seconds). Adjust as needed.
+            const zoneEventBuffer = 15000;
+            
+            let selectedUser = null;
+            let selectedTrip = null;
+            let selectedZone = null;
+            let selectedEntities = [];
+            
+            let isConnected = false;
+            let hassUrl = '';
+            let hassToken = '';
+            let allEntities = [];
+            let storage = null;
+            
+            let config = {
+                enableTrips: true,
+                enableNotifications: true,
+                enableAI: false,
+                geminiKey: '',
+                tripSpeedThreshold: 5,
+                tripStopDuration: 120,
+                refreshInterval: 5
+            };
+            
+            let userHistory = {};
+            let lastPositions = {};
+            let processedZoneEvents = new Set();
+            
+            let zoneCreationMode = false;
+            let pendingZone = null;
+            let pendingZoneCircle = null;
+            let zoneEditMode = null;
+            
+            let timelineRange = 'today';
+            let refreshTimer = null;
+        
+        // ==========================================
+        // Initialization
+        // ==========================================
+        
+        async function init() {
+            try {
+                console.log('Initializing Family Mapper AI...');
+                initMap();
+                await loadConfig();
+                detectHomeAssistant();
+                updateNotificationUI();
+
+                if (hassUrl && hassToken) {
+                    await testConnection();
+                }
+
+                // Start refresh timer even if not connected; will try to pull HA data
+                startRefreshTimer();
+                console.log('Family Mapper AI initialized successfully');
+            } catch (error) {
+                console.error('Error during initialization:', error);
+                // If initialization fails we still start the refresh timer so the UI updates when connection becomes available
+                try {
+                    startRefreshTimer();
+                } catch (fallbackError) {
+                    console.error('Failed to start refresh timer:', fallbackError);
+                }
+            }
+        }
+        
+        function updateNotificationUI() {
+            const buttonText = document.getElementById('notificationButtonText');
+            if (buttonText) {
+                buttonText.textContent = config.enableAI && config.geminiKey ? 
+                    'Create Smart Automation' : 
+                    'Add Notification Rule';
+            }
+        }
+        
+        function initMap() {
+            map = L.map('map').setView([34.0522, -118.2437], 13);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+            
+            map.on('click', function(e) {
+                if (zoneCreationMode && pendingZone) {
+                    pendingZone.lat = e.latlng.lat;
+                    pendingZone.lng = e.latlng.lng;
+                    placeZoneAtClick(e);
+                }
+            });
+        }
+        
+        async function loadConfig() {
+            // Try loading from localStorage first as a fallback
+            const saved = localStorage.getItem('familyMapperConfig');
+            if (saved) {
+                try {
+                    const savedConfig = JSON.parse(saved);
+                    Object.assign(config, savedConfig);
+                    hassUrl = savedConfig.hassUrl || '';
+                    hassToken = savedConfig.hassToken || '';
+                    selectedEntities = savedConfig.selectedEntities || [];
+                } catch (e) {
+                    console.error('Error parsing config:', e);
+                }
+            }
+            
+            // Load other data from localStorage
+            const savedTrips = localStorage.getItem('familyMapperTrips');
+            if (savedTrips) {
+                try {
+                    trips = JSON.parse(savedTrips);
+                } catch (e) {
+                    console.error('Error parsing trips:', e);
+                }
+            }
+            
+            const savedEvents = localStorage.getItem('familyMapperEvents');
+            if (savedEvents) {
+                try {
+                    zoneEvents = JSON.parse(savedEvents);
+                } catch (e) {
+                    console.error('Error parsing events:', e);
+                }
+            }
+            
+            const savedRules = localStorage.getItem('familyMapperNotifications');
+            if (savedRules) {
+                try {
+                    notificationRules = JSON.parse(savedRules);
+                } catch (e) {
+                    console.error('Error parsing notifications:', e);
+                }
+            }
+            
+            const savedZones = localStorage.getItem('familyMapperZones');
+            if (savedZones) {
+                try {
+                    zones = JSON.parse(savedZones);
+                    updateZonesOnMap();
+                } catch (e) {
+                    console.error('Error parsing zones:', e);
+                }
+            }
+            
+            updateUIFromConfig();
+            
+            // Try loading from HA storage if available
+            if (storage) {
+                try {
+                    const haConfig = await storage.get('config');
+                    if (haConfig) {
+                        Object.assign(config, haConfig);
+                        hassUrl = haConfig.hassUrl || '';
+                        hassToken = haConfig.hassToken || '';
+                        selectedEntities = haConfig.selectedEntities || [];
+                    }
+                    
+                    const haTrips = await storage.get('trips');
+                    if (haTrips) trips = haTrips;
+                    
+                    const haEvents = await storage.get('events');
+                    if (haEvents) zoneEvents = haEvents;
+                    
+                    const haRules = await storage.get('notifications');
+                    if (haRules) notificationRules = haRules;
+                    
+                    const haZones = await storage.get('zones');
+                    if (haZones) {
+                        zones = haZones;
+                        updateZonesOnMap();
+                    }
+                    
+                    updateUIFromConfig();
+                    console.log('✓ Configuration loaded from Home Assistant storage');
+                } catch (error) {
+                    console.warn('Could not load from HA storage:', error);
+                }
+            }
+        }
+        
+        function updateUIFromConfig() {
+            document.getElementById('haUrl').value = hassUrl;
+            document.getElementById('haToken').value = hassToken;
+            document.getElementById('enableTrips').checked = config.enableTrips;
+            document.getElementById('enableNotifications').checked = config.enableNotifications;
+            document.getElementById('enableAI').checked = config.enableAI;
+            document.getElementById('geminiKey').value = config.geminiKey || '';
+            document.getElementById('tripSpeed').value = config.tripSpeedThreshold;
+            document.getElementById('tripStop').value = config.tripStopDuration;
+            document.getElementById('refreshInterval').value = config.refreshInterval;
+            
+            if (config.enableAI && config.geminiKey) {
+                document.getElementById('aiStatus').style.display = 'block';
+                document.getElementById('aiSettings').style.display = 'block';
+            }
+        }
+        
+        function detectHomeAssistant() {
+            if (window.parent !== window) {
+                try {
+                    const parentUrl = window.parent.location.origin;
+                    if (!hassUrl && parentUrl) {
+                        hassUrl = parentUrl;
+                        document.getElementById('haUrl').value = hassUrl;
+                    }
+                } catch (e) {
+                    console.log('Cannot access parent window');
+                }
+            }
+        }
+        
+        function startRefreshTimer() {
+            if (refreshTimer) clearInterval(refreshTimer);
+            
+            refreshTimer = setInterval(() => {
+                if (isConnected) {
+                    loadHomeAssistantData();
+                } else {
+                    // If not connected to Home Assistant, do not simulate mock data. Leave UI blank until connection is established.
+                    users = [];
+                    activeTrips = {};
+                    updateMap();
+                    updatePanels();
+                }
+            }, config.refreshInterval * 1000);
+        }
+        
+        // ==========================================
+        // Sidebar Management
+        // ==========================================
+        
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mapContainer = document.getElementById('mapContainer');
+            const icon = document.getElementById('toggleIcon');
+            
+            if (sidebar.classList.contains('collapsed')) {
+                sidebar.classList.remove('collapsed');
+                mapContainer.classList.remove('sidebar-collapsed');
+                mapContainer.classList.add('sidebar-open');
+                icon.className = 'fas fa-chevron-right icon';
+            } else {
+                sidebar.classList.add('collapsed');
+                mapContainer.classList.remove('sidebar-open');
+                mapContainer.classList.add('sidebar-collapsed');
+                icon.className = 'fas fa-chevron-left icon';
+            }
+            
+            setTimeout(() => map.invalidateSize(), 300);
+        }
+        
+        function switchTab(tabName) {
+            try {
+                document.querySelectorAll('.nav-item').forEach(item => {
+                    if (item.dataset.tab === tabName) {
+                        item.classList.add('active');
+                    } else {
+                        item.classList.remove('active');
+                    }
+                });
+                
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.style.display = 'none';
+                });
+                
+                const tabElement = document.getElementById('tab-' + tabName);
+                if (tabElement) {
+                    tabElement.style.display = 'block';
+                }
+                
+                if (tabName === 'users') updateUsersPanel();
+                if (tabName === 'zones') updateZonesPanel();
+                if (tabName === 'driving') updateDrivingPanel();
+                if (tabName === 'timeline') updateTimelinePanel();
+                if (tabName === 'notifications') updateNotificationsPanel();
+            } catch (error) {
+                console.error('Error switching tab:', error);
+            }
+        }
+        
+        function toggleSection(header) {
+            const section = header.parentElement;
+            section.classList.toggle('expanded');
+        }
+        
+        // ==========================================
+        // Home Assistant Integration
+        // ==========================================
+        
+        async function saveConnection() {
+            hassUrl = document.getElementById('haUrl').value;
+            hassToken = document.getElementById('haToken').value;
+            
+            if (!hassUrl || !hassToken) {
+                alert('Please enter both URL and token');
+                return;
+            }
+            
+            const connected = await testConnection();
+            
+            if (connected) {
+                await saveAllSettings();
+                alert('Connected successfully!');
+            } else {
+                alert('Failed to connect. Check your URL and token.');
+            }
+        }
+        
+        async function testConnection() {
+            if (!hassUrl || !hassToken) return false;
+            
+            try {
+                const response = await fetch(`${hassUrl}/api/`, {
+                    headers: {
+                        'Authorization': `Bearer ${hassToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    isConnected = true;
+                    updateConnectionStatus(true, 'Connected');
+                    
+                    // Initialize storage if available
+                    if (typeof FamilyMapperStorage !== 'undefined') {
+                        try {
+                            storage = new FamilyMapperStorage(hassUrl, hassToken);
+                            await storage.preloadAll();
+                            console.log('✓ Storage preloaded from Home Assistant');
+                            await loadConfig();
+                        } catch (storageError) {
+                            console.warn('Could not preload HA storage, using local:', storageError);
+                            storage = null;
+                        }
+                    } else {
+                        console.log('Storage API not available, using localStorage');
+                        storage = null;
+                    }
+                    
+                    await loadHomeAssistantData();
+                    await loadAvailableEntities();
+                    // Load device sensors once after connection is established
+                    try {
+                        loadDeviceSensors();
+                    } catch (e) {
+                        console.warn('Could not load device sensors on connection:', e);
+                    }
+                    return true;
+                } else {
+                    throw new Error('Connection failed');
+                }
+            } catch (error) {
+                console.error('Connection error:', error);
+                isConnected = false;
+                storage = null;
+                updateConnectionStatus(false, 'Connection failed');
+                return false;
+            }
+        }
+        
+        function updateConnectionStatus(connected, text) {
+            const dot = document.getElementById('connectionDot');
+            const status = document.getElementById('connectionStatus');
+            
+            if (connected) {
+                dot.classList.remove('warning');
+                dot.classList.add('status-dot');
+            } else {
+                dot.classList.add('warning');
+            }
+            
+            status.textContent = text;
+        }
+        
+        async function loadAvailableEntities() {
+            if (!isConnected) return;
+            
+            try {
+                const response = await fetch(`${hassUrl}/api/states`, {
+                    headers: {
+                        'Authorization': `Bearer ${hassToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const states = await response.json();
+                    
+                    allEntities = states.filter(entity => 
+                        (entity.entity_id.startsWith('person.') ||
+                         entity.entity_id.startsWith('device_tracker.')) &&
+                        entity.attributes.latitude !== undefined &&
+                        entity.attributes.longitude !== undefined
+                    );
+                    
+                    updateEntitySelector();
+                }
+            } catch (error) {
+                console.error('Failed to load entities:', error);
+            }
+        }
+        
+        function updateEntitySelector() {
+            const container = document.getElementById('entitySelector');
+            
+            if (allEntities.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-description">No trackable entities found</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            const grouped = {};
+            allEntities.forEach(entity => {
+                const name = entity.attributes.friendly_name || entity.entity_id;
+                const personName = name.split(' ')[0];
+                
+                if (!grouped[personName]) {
+                    grouped[personName] = [];
+                }
+                grouped[personName].push(entity);
+            });
+            
+            let html = '';
+            Object.keys(grouped).forEach(person => {
+                if (grouped[person].length > 1) {
+                    html += `<div style="margin-bottom: 12px;">`;
+                    html += `<div style="font-weight: 500; margin-bottom: 4px;">${person}</div>`;
+                    grouped[person].forEach(entity => {
+                        const isChecked = selectedEntities.includes(entity.entity_id);
+                        html += `
+                            <div style="display: flex; align-items: center; gap: 8px; margin: 4px 0 4px 16px; font-size: 12px;">
+                                <input type="checkbox" 
+                                       id="${entity.entity_id}" 
+                                       value="${entity.entity_id}"
+                                       ${isChecked ? 'checked' : ''}
+                                       onchange="toggleEntity('${entity.entity_id}')" 
+                                       style="cursor: pointer;">
+                                <label for="${entity.entity_id}" style="cursor: pointer;">
+                                    ${entity.entity_id} 
+                                    ${entity.state ? `(${entity.state})` : ''}
+                                </label>
+                            </div>
+                        `;
+                    });
+                    html += `</div>`;
+                } else {
+                    const entity = grouped[person][0];
+                    const isChecked = selectedEntities.includes(entity.entity_id);
+                    html += `
+                        <div style="display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 12px;">
+                            <input type="checkbox" 
+                                   id="${entity.entity_id}" 
+                                   value="${entity.entity_id}"
+                                   ${isChecked ? 'checked' : ''}
+                                   onchange="toggleEntity('${entity.entity_id}')" 
+                                   style="cursor: pointer;">
+                            <label for="${entity.entity_id}" style="cursor: pointer;">
+                                ${entity.attributes.friendly_name || entity.entity_id}
+                            </label>
+                        </div>
+                    `;
+                }
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function toggleEntity(entityId) {
+            const index = selectedEntities.indexOf(entityId);
+            if (index > -1) {
+                selectedEntities.splice(index, 1);
+            } else {
+                selectedEntities.push(entityId);
+            }
+            
+            saveAllSettings();
+            loadHomeAssistantData();
+        }
+        
+        async function loadHomeAssistantData() {
+            if (!isConnected) return;
+            
+            try {
+                const response = await fetch(`${hassUrl}/api/states`, {
+                    headers: {
+                        'Authorization': `Bearer ${hassToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const states = await response.json();
+                    processHomeAssistantData(states);
+                }
+            } catch (error) {
+                console.error('Failed to load HA data:', error);
+                updateConnectionStatus(false, 'Connection error');
+            }
+        }
+        
+        function processHomeAssistantData(states) {
+            // Store all HA states globally for sensor listings
+            allEntities = states;
+
+            let trackers = states.filter(entity =>
+                (selectedEntities.length === 0 || selectedEntities.includes(entity.entity_id)) &&
+                (entity.entity_id.startsWith('person.') || entity.entity_id.startsWith('device_tracker.')) &&
+                entity.attributes.latitude !== undefined &&
+                entity.attributes.longitude !== undefined
+            );
+            
+            if (selectedEntities.length === 0) {
+                trackers = states.filter(entity =>
+                    entity.entity_id.startsWith('person.') &&
+                    entity.attributes.latitude !== undefined &&
+                    entity.attributes.longitude !== undefined
+                );
+            }
+            
+            const sensorMap = {};
+            // Build a map of sensors per device (battery, charging and speed)
+            states.forEach(entity => {
+                if (!entity.entity_id.startsWith('sensor.')) return;
+                const devClass = (entity.attributes.device_class || '').toString().toLowerCase();
+                const unit = (entity.attributes.unit_of_measurement || '').toString().toLowerCase();
+                // Derive device name by stripping the last part of the entity id (e.g. sensor.phone_speed)
+                const idWithoutPrefix = entity.entity_id.substring('sensor.'.length);
+                const parts = idWithoutPrefix.split('_');
+                if (parts.length < 2) return;
+                const sensorType = parts.pop();
+                const deviceName = parts.join('_');
+                if (!sensorMap[deviceName]) {
+                    sensorMap[deviceName] = {};
+                }
+                // Battery level detection
+                if (sensorType.includes('battery') || devClass.includes('battery') || unit === '%' || unit === 'percent') {
+                    const val = parseFloat(entity.state);
+                    if (!isNaN(val)) {
+                        sensorMap[deviceName].battery_level = val;
+                        sensorMap[deviceName].battery_sensor_id = entity.entity_id;
+                    }
+                }
+                // Charging state detection
+                if (sensorType.includes('state')) {
+                    sensorMap[deviceName].battery_state = entity.state;
+                    sensorMap[deviceName].battery_state_sensor_id = entity.entity_id;
+                }
+                if (sensorType.includes('charger')) {
+                    sensorMap[deviceName].charger_type = entity.state;
+                    sensorMap[deviceName].charger_sensor_id = entity.entity_id;
+                }
+                // Speed detection: capture any sensor that looks like speed
+                const raw = parseFloat(entity.state);
+                if (!isNaN(raw)) {
+                    let mph = null;
+                    if (sensorType.includes('speed') || devClass.includes('speed') || unit.includes('mph') || unit.includes('km/h') || unit.includes('kmh') || unit.includes('kph') || unit.includes('knots') || unit.includes('m/s')) {
+                        if (unit.includes('km')) {
+                            mph = raw * 0.621371;
+                        } else if (unit.includes('m/s')) {
+                            mph = raw * 2.23694;
+                        } else if (unit.includes('knot') || unit.includes('knots')) {
+                            mph = raw * 1.15078;
+                        } else {
+                            // assume mph or unknown units
+                            mph = raw;
+                        }
+                        sensorMap[deviceName].speed = mph;
+                        sensorMap[deviceName].speed_sensor_id = entity.entity_id;
+                    }
+                }
+            });
+            
+            const grouped = {};
+            trackers.forEach(entity => {
+                const name = entity.attributes.friendly_name || entity.entity_id.split('.')[1];
+                const personKey = name.split(' ')[0].toLowerCase();
+                
+                let deviceSensors = {};
+                const entityName = entity.entity_id.split('.')[1];
+                
+                Object.keys(sensorMap).forEach(deviceName => {
+                    if (entityName.includes(deviceName) || deviceName.includes(entityName)) {
+                        deviceSensors = sensorMap[deviceName];
+                    }
+                });
+                
+                if (entity.entity_id.startsWith('person.')) {
+                    const personName = entity.entity_id.split('.')[1];
+                    const deviceTracker = states.find(e => 
+                        e.entity_id.startsWith('device_tracker.') &&
+                        e.entity_id.includes(personName)
+                    );
+                    
+                    if (deviceTracker) {
+                        const trackerName = deviceTracker.entity_id.split('.')[1];
+                        Object.keys(sensorMap).forEach(deviceName => {
+                            if (trackerName.includes(deviceName) || deviceName.includes(trackerName)) {
+                                deviceSensors = sensorMap[deviceName];
+                            }
+                        });
+                    }
+                }
+                
+                if (!grouped[personKey]) {
+                    grouped[personKey] = {
+                        id: `person_${personKey}`,
+                        name: name.split(' ')[0],
+                        entities: []
+                    };
+                }
+                
+                let batteryLevel = entity.attributes.battery_level || 
+                                  deviceSensors.battery_level || 
+                                  100;
+                
+                if (typeof batteryLevel === 'string') {
+                    batteryLevel = parseInt(batteryLevel) || 100;
+                }
+                
+                let isCharging = false;
+                if (deviceSensors.battery_state) {
+                    isCharging = deviceSensors.battery_state.toLowerCase() === 'charging';
+                } else if (deviceSensors.charger_type) {
+                    isCharging = deviceSensors.charger_type.toLowerCase() !== 'none' && 
+                                deviceSensors.charger_type.toLowerCase() !== 'unknown';
+                }
+                
+                grouped[personKey].entities.push({
+                    entity_id: entity.entity_id,
+                    lat: entity.attributes.latitude,
+                    lng: entity.attributes.longitude,
+                    battery: batteryLevel,
+                    charging: isCharging,
+                    speed: entity.attributes.speed || 0,
+                    state: entity.state,
+                    picture: entity.attributes.entity_picture || entity.attributes.picture || null,
+                    lastUpdated: new Date(entity.last_updated || Date.now()),
+                    sensors: deviceSensors
+                });
+            });
+            
+            const oldUsers = [...users];
+            users = Object.values(grouped).map(person => {
+                const mostRecent = person.entities.reduce((latest, entity) => 
+                    !latest || entity.lastUpdated > latest.lastUpdated ? entity : latest
+                );
+                
+                const oldUser = oldUsers.find(u => u.id === person.id);
+                
+                return {
+                    id: person.id,
+                    name: person.name,
+                    lat: mostRecent.lat,
+                    lng: mostRecent.lng,
+                    battery: typeof mostRecent.sensors?.battery_level === 'number' ? mostRecent.sensors.battery_level : mostRecent.battery,
+                    charging: mostRecent.charging,
+                    // Prefer the speed detected from sensors if available; otherwise use entity speed or 0.
+                    speed: (typeof mostRecent.sensors?.speed === 'number') ? mostRecent.sensors.speed : (typeof mostRecent.speed === 'number' ? mostRecent.speed : 0),
+                    state: mostRecent.state,
+                    picture: mostRecent.picture,
+                    lastUpdated: mostRecent.lastUpdated,
+                    entities: person.entities.map(e => e.entity_id),
+                    sensors: mostRecent.sensors,
+                    currentLocationSince: oldUser ? oldUser.currentLocationSince : new Date()
+                };
+            });
+            
+            if (config.enableTrips) {
+                processUserMovements(oldUsers);
+            }
+            
+            checkZoneEvents();
+            
+            updateMap();
+            updatePanels();
+            // If settings tab is active, refresh the device sensors list
+            try {
+                const activeTab = document.querySelector('.nav-item.active')?.dataset.tab;
+                if (activeTab === 'settings') {
+                    loadDeviceSensors();
+                }
+            } catch (err) {
+                console.warn('Could not update device sensors list:', err);
+            }
+            
+            const haZones = states.filter(entity => entity.entity_id.startsWith('zone.'))
+                .map(entity => ({
+                    id: entity.entity_id,
+                    name: entity.attributes.friendly_name || entity.entity_id.split('.')[1],
+                    lat: entity.attributes.latitude || 0,
+                    lng: entity.attributes.longitude || 0,
+                    radius: entity.attributes.radius || 100,
+                    color: '#3b82f6',
+                    isHAZone: true
+                }));
+            
+            const customZones = zones.filter(z => !z.isHAZone);
+            zones = [...haZones, ...customZones];
+            updateZonesOnMap();
+        }
+        
+        // ==========================================
+        // Map Management
+        // ==========================================
+        
+        function updateMap() {
+            Object.values(markers).forEach(marker => map.removeLayer(marker));
+            markers = {};
+            
+            users.forEach(user => {
+                const isActive = activeTrips[user.id];
+                const profilePic = user.picture ? `<img src="${hassUrl}${user.picture}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">` : 
+                                                  `<div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">${user.name.charAt(0).toUpperCase()}</div>`;
+                
+                const icon = L.divIcon({
+                    html: `
+                        <div style="position: relative; width: 40px; height: 40px;">
+                            <div style="width: 36px; height: 36px; border-radius: 50%;
+                                        background: ${user.id === selectedUser ? '#3b82f6' : (isActive ? '#22c55e' : '#1f2937')};
+                                        border: 2px solid ${user.id === selectedUser ? '#60a5fa' : (isActive ? '#86efac' : '#4b5563')};
+                                        display: flex; align-items: center; justify-content: center;
+                                        box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+                                ${profilePic}
+                            </div>
+                            ${user.battery < 20 ? '<div style="position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; background: #ef4444; border-radius: 50%;"></div>' : ''}
+                            ${isActive ? '<div style="position: absolute; bottom: -2px; right: -2px; width: 10px; height: 10px; background: #22c55e; border-radius: 50%; animation: pulse 2s infinite;"></div>' : ''}
+                        </div>
+                    `,
+                    className: 'custom-marker',
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 20]
+                });
+                
+                const marker = L.marker([user.lat, user.lng], { icon }).addTo(map);
+                
+                marker.bindPopup(`
+                    <div style="min-width: 200px;">
+                        <strong>${user.name}</strong><br>
+                        State: ${user.state}<br>
+                        Battery: ${user.battery}%<br>
+                        Speed: ${user.speed} mph<br>
+                        ${isActive ? '<span style="color: #22c55e;"><i class="fas fa-car"></i> Currently Driving</span>' : ''}
+                    </div>
+                `);
+                
+                marker.on('click', () => selectUser(user.id));
+                markers[user.id] = marker;
+            });
+            
+            let shouldRecenter = false;
+            if (window.lastUserPositions) {
+                users.forEach(user => {
+                    const lastPos = window.lastUserPositions[user.id];
+                    if (lastPos) {
+                        const distance = calculateDistance(
+                            {lat: lastPos.lat, lng: lastPos.lng},
+                            {lat: user.lat, lng: user.lng}
+                        );
+                        if (distance > 0.062) {
+                            shouldRecenter = true;
+                        }
+                    }
+                });
+            } else {
+                shouldRecenter = true;
+            }
+            
+            window.lastUserPositions = {};
+            users.forEach(user => {
+                window.lastUserPositions[user.id] = {lat: user.lat, lng: user.lng};
+            });
+            
+            if (users.length > 0 && !selectedUser && !selectedTrip && !window.autoZoomDisabled && shouldRecenter) {
+                setTimeout(() => {
+                    const bounds = L.latLngBounds(users.map(u => [u.lat, u.lng]));
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                }, 100);
+            }
+            
+            const badge = document.getElementById('usersBadge');
+            if (users.length > 0) {
+                badge.textContent = users.length;
+                badge.style.display = 'block';
+            }
+            
+            const activeCount = Object.keys(activeTrips).length;
+            if (activeCount > 0) {
+                document.getElementById('activeTripsStatus').style.display = 'block';
+                document.getElementById('activeTripsCount').textContent = `${activeCount} driving`;
+                document.getElementById('drivingBadge').textContent = activeCount;
+                document.getElementById('drivingBadge').style.display = 'block';
+            } else {
+                document.getElementById('activeTripsStatus').style.display = 'none';
+                document.getElementById('drivingBadge').style.display = 'none';
+            }
+        }
+        
+        function updateZonesOnMap() {
+            Object.values(zoneCircles).forEach(circle => map.removeLayer(circle));
+            zoneCircles = {};
+            
+            zones.forEach(zone => {
+                const circle = L.circle([zone.lat, zone.lng], {
+                    color: zone.color || '#3b82f6',
+                    fillColor: zone.color || '#3b82f6',
+                    fillOpacity: 0.2,
+                    radius: zone.radius
+                }).addTo(map);
+                
+                circle.bindPopup(`
+                    <strong>${zone.name}</strong><br>
+                    Radius: ${zone.radius}m
+                `);
+                
+                circle.on('click', () => selectZone(zone.id));
+                zoneCircles[zone.id] = circle;
+            });
+        }
+        
+        function selectUser(userId) {
+            selectedUser = selectedUser === userId ? null : userId;
+            
+            if (selectedUser) {
+                const user = users.find(u => u.id === selectedUser);
+                if (user) {
+                    map.setView([user.lat, user.lng], 16);
+                }
+            }
+            
+            updateUsersPanel();
+            updateMap();
+        }
+        
+        function selectZone(zoneId) {
+            selectedZone = selectedZone === zoneId ? null : zoneId;
+            
+            if (selectedZone) {
+                const zone = zones.find(z => z.id === zoneId);
+                if (zone) {
+                    map.setView([zone.lat, zone.lng], 16);
+                }
+            }
+            
+            updateZonesPanel();
+        }
+        
+        // ==========================================
+        // Zone Management
+        // ==========================================
+        
+        function startZoneCreation() {
+            const zoneName = prompt('Enter zone name:');
+            if (!zoneName) return;
+            
+            pendingZone = {
+                name: zoneName,
+                radius: 150,
+                color: '#3b82f6',
+                placed: false
+            };
+            
+            zoneCreationMode = true;
+            window.autoZoomDisabled = true;
+            
+            showToast('Click on the map to place the zone', 'info');
+        }
+        
+        function placeZoneAtClick(e) {
+            if (!zoneCreationMode || !pendingZone) return;
+            
+            if (pendingZoneCircle) {
+                map.removeLayer(pendingZoneCircle);
+            }
+            
+            pendingZone.lat = e.latlng.lat;
+            pendingZone.lng = e.latlng.lng;
+            pendingZone.placed = true;
+            
+            pendingZoneCircle = L.circle([pendingZone.lat, pendingZone.lng], {
+                color: '#fbbf24',
+                fillColor: '#fbbf24',
+                fillOpacity: 0.3,
+                weight: 3,
+                dashArray: '10, 5',
+                radius: pendingZone.radius
+            }).addTo(map);
+            
+            confirmZoneCreation();
+        }
+        
+        async function confirmZoneCreation() {
+            if (!pendingZone || !pendingZone.placed) return;
+            
+            const zone = {
+                id: `zone_custom_${Date.now()}`,
+                name: pendingZone.name,
+                lat: pendingZone.lat,
+                lng: pendingZone.lng,
+                radius: pendingZone.radius,
+                color: '#3b82f6',
+                isCustom: true
+            };
+            
+            zones.push(zone);
+            await saveZones();
+            
+            if (pendingZoneCircle) {
+                map.removeLayer(pendingZoneCircle);
+            }
+            
+            const circle = L.circle([zone.lat, zone.lng], {
+                color: zone.color,
+                fillColor: zone.color,
+                fillOpacity: 0.2,
+                weight: 2,
+                radius: zone.radius
+            }).addTo(map);
+            
+            circle.on('click', () => selectZone(zone.id));
+            zoneCircles[zone.id] = circle;
+            
+            zoneCreationMode = false;
+            pendingZone = null;
+            pendingZoneCircle = null;
+            window.autoZoomDisabled = false;
+            
+            updateZonesPanel();
+            showToast(`Zone "${zone.name}" created successfully!`, 'success');
+        }
+        
+        // ==========================================
+        // Trip Detection
+        // ==========================================
+        
+        async function processUserMovements(oldUsers) {
+            users.forEach(user => {
+                const oldUser = oldUsers.find(u => u.id === user.id);
+                if (!oldUser) {
+                    user.currentLocationSince = new Date();
+                    return;
+                }
+                
+                const distance = calculateDistance(
+                    {lat: oldUser.lat, lng: oldUser.lng},
+                    {lat: user.lat, lng: user.lng}
+                );
+                
+                if (distance > 0.031) {
+                    user.currentLocationSince = new Date();
+                } else {
+                    user.currentLocationSince = oldUser.currentLocationSince || new Date();
+                }
+                
+                if (!userHistory[user.id]) {
+                    userHistory[user.id] = [];
+                }
+                
+                userHistory[user.id].push({
+                    lat: user.lat,
+                    lng: user.lng,
+                    speed: user.speed,
+                    timestamp: new Date()
+                });
+                
+                const oneHourAgo = new Date(Date.now() - 3600000);
+                userHistory[user.id] = userHistory[user.id].filter(h => h.timestamp > oneHourAgo);
+                
+                const activeTrip = activeTrips[user.id];
+                
+                if (user.speed >= config.tripSpeedThreshold) {
+                    if (!activeTrip) {
+                        // Start a new trip
+                        const tripId = `trip_${user.id}_${Date.now()}`;
+                        const trip = {
+                            id: tripId,
+                            userId: user.id,
+                            userName: user.name,
+                            startTime: new Date(),
+                            startLocation: [user.lat, user.lng],
+                            currentLocation: [user.lat, user.lng],
+                            distance: 0,
+                            maxSpeed: user.speed,
+                            waypoints: [{lat: user.lat, lng: user.lng, timestamp: new Date()}],
+                            status: 'active'
+                        };
+                        activeTrips[user.id] = trip;
+                        // Create a polyline for the trip path on the map
+                        const polyline = L.polyline([[user.lat, user.lng]], { color: 'var(--success-color)', weight: 4 }).addTo(map);
+                        tripPaths[tripId] = polyline;
+                        currentTripPath = polyline;
+                        if (config.enableNotifications) {
+                            sendNotification(`${user.name} Started Driving`, `Speed: ${Math.round(user.speed)} mph`);
+                        }
+                    } else {
+                        // Continue updating an active trip
+                        const lastPoint = activeTrip.waypoints[activeTrip.waypoints.length - 1];
+                        const distance = calculateDistance(lastPoint, {lat: user.lat, lng: user.lng});
+                        activeTrip.currentLocation = [user.lat, user.lng];
+                        activeTrip.distance += distance;
+                        activeTrip.waypoints.push({lat: user.lat, lng: user.lng, timestamp: new Date()});
+                        if (user.speed > activeTrip.maxSpeed) {
+                            activeTrip.maxSpeed = user.speed;
+                        }
+                        // Add the new coordinate to the polyline
+                        const poly = tripPaths[activeTrip.id];
+                        if (poly) {
+                            poly.addLatLng([user.lat, user.lng]);
+                        }
+                    }
+                } else if (activeTrip) {
+                    // Check if the user has stopped long enough to end the trip
+                    const lastMovement = activeTrip.waypoints[activeTrip.waypoints.length - 1];
+                    const timeStopped = (new Date() - lastMovement.timestamp) / 1000;
+                    if (timeStopped >= config.tripStopDuration) {
+                        activeTrip.endTime = new Date();
+                        activeTrip.endLocation = [user.lat, user.lng];
+                        activeTrip.duration = activeTrip.endTime - activeTrip.startTime;
+                        activeTrip.status = 'completed';
+                        activeTrip.averageSpeed = activeTrip.distance / (activeTrip.duration / 3600000);
+                        // Create a simple summary for the trip
+                        activeTrip.summary = generateTripSummary(activeTrip);
+                        // Lighten the polyline color to indicate completion
+                        const poly = tripPaths[activeTrip.id];
+                        if (poly) {
+                            poly.setStyle({ color: '#aaa', weight: 3 });
+                        }
+                        // Move trip to completed trips list and remove from active
+                        trips.push(activeTrip);
+                        delete activeTrips[user.id];
+                        saveTrips();
+                        if (config.enableNotifications) {
+                            const duration = Math.round(activeTrip.duration / 60000);
+                            sendNotification(
+                                `${user.name} Completed Trip`,
+                                `Distance: ${activeTrip.distance.toFixed(2)} mi, Duration: ${duration} min`
+                            );
+                        }
+                    }
+                }
+                
+                lastPositions[user.id] = [user.lat, user.lng];
+            });
+        }
+        
+        function calculateDistance(point1, point2) {
+            const R = 3959;
+            const lat1 = point1.lat * Math.PI / 180;
+            const lat2 = point2.lat * Math.PI / 180;
+            const deltaLat = (point2.lat - point1.lat) * Math.PI / 180;
+            const deltaLon = (point2.lng - point1.lng) * Math.PI / 180;
+            
+            const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+                      Math.cos(lat1) * Math.cos(lat2) *
+                      Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            
+            return R * c;
+        }
+
+        /**
+         * Generate a simple human‑readable summary for a completed trip.
+         * Includes top speed, total distance and duration in minutes.
+         */
+        function generateTripSummary(trip) {
+            const distance = trip.distance.toFixed(2);
+            const maxSpeed = Math.round(trip.maxSpeed);
+            const durationMin = Math.round(trip.duration / 60000);
+            return `Top speed ${maxSpeed} mph, total distance ${distance} mi, total time ${durationMin} minutes.`;
+        }
+        
+        // ==========================================
+        // Zone Events
+        // ==========================================
+        
+        async function checkZoneEvents() {
+            zones.forEach(zone => {
+                users.forEach(user => {
+                    const distance = calculateDistance(
+                        {lat: user.lat, lng: user.lng},
+                        {lat: zone.lat, lng: zone.lng}
+                    );
+                    const inZone = distance * 5280 <= zone.radius;
+                    const eventKey = `${user.id}-${zone.id}`;
+                    const now = new Date();
+                    
+                    // User is inside the zone
+                    if (inZone) {
+                        // If not yet logged as inside, start or continue pending enter
+                        if (!processedZoneEvents.has(eventKey)) {
+                            if (!zonePendingEnter[eventKey]) {
+                                // record the time when user first entered the zone
+                                zonePendingEnter[eventKey] = now;
+                            } else if (now - zonePendingEnter[eventKey] >= zoneEventBuffer) {
+                                // user has been in zone longer than buffer, log enter event
+                                const event = {
+                                    id: Date.now().toString(),
+                                    userId: user.id,
+                                    userName: user.name,
+                                    zoneId: zone.id,
+                                    zoneName: zone.name,
+                                    type: 'enter',
+                                    timestamp: now
+                                };
+                                zoneEvents.push(event);
+                                processedZoneEvents.add(eventKey);
+                                // track the time user entered for duration calculation on leave
+                                if (!window.zoneEnterTimes) window.zoneEnterTimes = {};
+                                window.zoneEnterTimes[eventKey] = now;
+                                // clear pending timers
+                                delete zonePendingEnter[eventKey];
+                                delete zonePendingLeave[eventKey];
+                                saveEvents();
+                                checkNotificationRules(event);
+                            }
+                        } else {
+                            // Already logged inside zone, clear any pending leave if exists
+                            if (zonePendingLeave[eventKey]) delete zonePendingLeave[eventKey];
+                        }
+                    } else {
+                        // User is outside the zone
+                        if (processedZoneEvents.has(eventKey)) {
+                            // previously inside; start or continue pending leave
+                            if (!zonePendingLeave[eventKey]) {
+                                zonePendingLeave[eventKey] = now;
+                            } else if (now - zonePendingLeave[eventKey] >= zoneEventBuffer) {
+                                // user has been out of zone longer than buffer, log leave event
+                                const enterTime = window.zoneEnterTimes && window.zoneEnterTimes[eventKey];
+                                const duration = enterTime ? (now - new Date(enterTime)) / 60000 : 0;
+                                const event = {
+                                    id: Date.now().toString(),
+                                    userId: user.id,
+                                    userName: user.name,
+                                    zoneId: zone.id,
+                                    zoneName: zone.name,
+                                    type: 'leave',
+                                    timestamp: now,
+                                    duration: duration,
+                                    enterTime: enterTime
+                                };
+                                zoneEvents.push(event);
+                                processedZoneEvents.delete(eventKey);
+                                // clear pending and tracking objects
+                                delete zonePendingLeave[eventKey];
+                                delete zonePendingEnter[eventKey];
+                                if (window.zoneEnterTimes) delete window.zoneEnterTimes[eventKey];
+                                saveEvents();
+                                checkNotificationRules(event);
+                            }
+                        } else {
+                            // user is outside and not tracked; clear any pending enter
+                            if (zonePendingEnter[eventKey]) delete zonePendingEnter[eventKey];
+                        }
+                    }
+                });
+            });
+        }
+        
+        function checkNotificationRules(event) {
+            if (!config.enableNotifications) return;
+            
+            notificationRules.forEach(rule => {
+                if (!rule.enabled) return;
+                const matchUser = rule.userId === 'all' || rule.userId === event.userId;
+                const matchZone = rule.zoneId === 'all' || rule.zoneId === event.zoneId;
+                const matchEvent = rule.eventType === 'both' || rule.eventType === event.type;
+                if (matchUser && matchZone && matchEvent) {
+                    const timeStr = new Date(event.timestamp || Date.now()).toLocaleTimeString();
+                    // Always construct a title and message using event details. Ignoring customTitle/customMessage for AI-generated notifications.
+                    const title = `${event.userName} ${event.type === 'enter' ? 'arrived at' : 'left'} ${event.zoneName}`;
+                    const message = `${event.userName} ${event.type === 'enter' ? 'entered' : 'left'} ${event.zoneName} at ${timeStr}`;
+                    sendNotification(title, message);
+                }
+            });
+        }
+        
+        // ==========================================
+        // Notifications
+        // ==========================================
+        
+        async function sendNotification(title, message) {
+            if (isConnected && hassToken) {
+                try {
+                    await fmFetch(hassUrl, '/api/services/notify/notify', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${hassToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            title: title,
+                            message: message,
+                            data: {
+                                tag: 'family-mapper',
+                                color: '#3b82f6'
+                            }
+                        })
+                    });
+                } catch (error) {
+                    console.error('Failed to send HA notification:', error);
+                }
+            }
+            
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(title, { body: message });
+            }
+        }
+        
+        /*
+         * Notification Rule Management
+         *
+         * The following functions allow users to define simple automations when
+         * family members enter or leave zones. Rules are parsed from a plain
+         * language description to determine which user, which zone, and which
+         * type of event (enter, leave, or both) should trigger a notification.
+         * Messages are automatically generated using the event's user name,
+         * zone name, and timestamp. Rules are persisted via Home Assistant
+         * storage when available or in localStorage as a fallback.
+         */
+
+        // Infer user, zone and event type from a description string. If nothing
+        // specific is mentioned, defaults to 'all' (all users/zones) and 'both' events.
+        function parseNotificationDescription(text) {
+            const lower = (text || '').toLowerCase();
+            let userId = 'all';
+            let zoneId = 'all';
+            // Try to match any user names
+            users.forEach(u => {
+                if (lower.includes(u.name.toLowerCase())) {
+                    userId = u.id;
+                }
+            });
+            // Try to match any zone names
+            zones.forEach(z => {
+                if (lower.includes(z.name.toLowerCase())) {
+                    zoneId = z.id;
+                }
+            });
+            let eventType = 'both';
+            if (lower.includes('enter') || lower.includes('arrive') || lower.includes('arrived')) {
+                eventType = 'enter';
+            }
+            if (lower.includes('leave') || lower.includes('exit') || lower.includes('left')) {
+                // If both keywords are present, treat as both
+                eventType = eventType === 'enter' ? 'both' : 'leave';
+            }
+            return { userId, zoneId, eventType };
+        }
+
+        // Create a new notification rule based on user input. The description
+        // determines the target user, zone and event type. Messages are
+        // generated dynamically when events occur.
+        async function addNotificationRule() {
+            const description = prompt('Describe the notification/automation you want to create.\nFor example: "Notify me when John enters Home"');
+            if (!description || !description.trim()) return;
+            const parsed = parseNotificationDescription(description);
+            const rule = {
+                id: Date.now().toString(),
+                description: description.trim(),
+                userId: parsed.userId,
+                zoneId: parsed.zoneId,
+                eventType: parsed.eventType,
+                enabled: true,
+                customTitle: '',
+                customMessage: ''
+            };
+            notificationRules.push(rule);
+            await saveNotificationRules();
+            updateNotificationsPanel();
+            showToast('Automation created', 'success');
+        }
+
+        // Toggle a rule on or off by its id.
+        function toggleNotificationRule(ruleId) {
+            const rule = notificationRules.find(r => r.id === ruleId);
+            if (rule) {
+                rule.enabled = !rule.enabled;
+                saveNotificationRules();
+                updateNotificationsPanel();
+            }
+        }
+
+        // Delete a rule by its id.
+        function deleteNotificationRule(ruleId) {
+            notificationRules = notificationRules.filter(r => r.id !== ruleId);
+            saveNotificationRules();
+            updateNotificationsPanel();
+        }
+
+        // Edit an existing rule's description and reparse it.
+        function editNotificationRule(ruleId) {
+            const rule = notificationRules.find(r => r.id === ruleId);
+            if (!rule) return;
+            const newDesc = prompt('Edit your automation description:', rule.description);
+            if (newDesc === null) return;
+            const parsed = parseNotificationDescription(newDesc);
+            rule.description = newDesc.trim();
+            rule.userId = parsed.userId;
+            rule.zoneId = parsed.zoneId;
+            rule.eventType = parsed.eventType;
+            saveNotificationRules();
+            updateNotificationsPanel();
+            showToast('Automation updated', 'success');
+        }
+
+        // Persist notification rules to Home Assistant storage or localStorage.
+        async function saveNotificationRules() {
+            try {
+                if (storage) {
+                    await storage.set('notifications', notificationRules);
+                } else {
+                    localStorage.setItem('familyMapperNotifications', JSON.stringify(notificationRules));
+                }
+            } catch (error) {
+                console.error('Error saving notification rules:', error);
+                localStorage.setItem('familyMapperNotifications', JSON.stringify(notificationRules));
+            }
+        }
+
+        // Render the notification rules list. Displays an empty state if none exist.
+        function updateNotificationsPanel() {
+            const container = document.getElementById('notificationRules');
+            if (!notificationRules || notificationRules.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon"><i class="fas fa-bell"></i></div>
+                        <div class="empty-title">No Automations</div>
+                        <div class="empty-description">Create smart notifications and automations</div>
+                    </div>
+                `;
+                return;
+            }
+            let html = '';
+            notificationRules.forEach(rule => {
+                // Determine display names
+                const userName = rule.userId === 'all' ? 'All users' : (users.find(u => u.id === rule.userId)?.name || rule.userId);
+                const zoneName = rule.zoneId === 'all' ? 'All zones' : (zones.find(z => z.id === rule.zoneId)?.name || rule.zoneId);
+                let eventLabel = '';
+                if (rule.eventType === 'both') eventLabel = 'Enter/Leave';
+                else if (rule.eventType === 'enter') eventLabel = 'Enter';
+                else if (rule.eventType === 'leave') eventLabel = 'Leave';
+                html += `
+                    <div class="notification-rule-card">
+                        <div class="rule-info">
+                            <div><strong>User:</strong> ${userName}</div>
+                            <div><strong>Zone:</strong> ${zoneName}</div>
+                            <div><strong>Event:</strong> ${eventLabel}</div>
+                            <div><em>${rule.description}</em></div>
+                        </div>
+                        <div class="rule-actions">
+                            <label class="switch">
+                                <input type="checkbox" ${rule.enabled ? 'checked' : ''} onchange="toggleNotificationRule('${rule.id}')">
+                                <span class="slider round"></span>
+                            </label>
+                            <button class="rule-btn" title="Edit" onclick="editNotificationRule('${rule.id}')"><i class="fas fa-edit"></i></button>
+                            <button class="rule-btn" title="Delete" onclick="deleteNotificationRule('${rule.id}')"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+        
+        // ==========================================
+        // Panel Updates
+        // ==========================================
+        
+        function updatePanels() {
+            const activeTab = document.querySelector('.nav-item.active').dataset.tab;
+            
+            if (activeTab === 'users') updateUsersPanel();
+            if (activeTab === 'zones') updateZonesPanel();
+            if (activeTab === 'driving') updateDrivingPanel();
+            if (activeTab === 'timeline') updateTimelinePanel();
+            if (activeTab === 'notifications') updateNotificationsPanel();
+            if (activeTab === 'settings') loadDeviceSensors();
+        }
+        
+        function updateUsersPanel() {
+            const container = document.getElementById('usersContent');
+            
+            if (users.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon"><i class="fas fa-users"></i></div>
+                        <div class="empty-title">No Family Members</div>
+                        <div class="empty-description">Connect to Home Assistant to see family members</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            users.forEach(user => {
+                const isActive = activeTrips[user.id];
+                
+                let locationDuration = '';
+                if (user.currentLocationSince) {
+                    const duration = Date.now() - new Date(user.currentLocationSince).getTime();
+                    const minutes = Math.floor(duration / 60000);
+                    const hours = Math.floor(minutes / 60);
+                    
+                    if (hours > 0) {
+                        locationDuration = `${hours}h ${minutes % 60}m`;
+                    } else {
+                        locationDuration = `${minutes}m`;
+                    }
+                }
+                
+                let currentZone = null;
+                zones.forEach(zone => {
+                    const distance = calculateDistance(
+                        {lat: user.lat, lng: user.lng},
+                        {lat: zone.lat, lng: zone.lng}
+                    );
+                    if (distance * 5280 <= zone.radius) {
+                        currentZone = zone.name;
+                    }
+                });
+                
+                html += `
+                    <div class="card ${user.id === selectedUser ? 'active' : ''} ${isActive ? 'driving' : ''}" 
+                         onclick="selectUser('${user.id}')">
+                        <div class="user-card">
+                            <div class="user-avatar" ${user.picture ? `style="background-image: url('${hassUrl}${user.picture}'); background-size: cover; background-position: center;"` : ''}>
+                                ${!user.picture ? user.name.charAt(0).toUpperCase() : ''}
+                            </div>
+                            <div class="user-info">
+                                <div class="user-name">${user.name}</div>
+                                <div class="user-status ${isActive ? 'driving' : ''}">
+                                    ${isActive ? '<i class="fas fa-car"></i> Driving' : (currentZone || user.state)}
+                                </div>
+                                ${locationDuration && !isActive ? `<div style="font-size: 11px; color: var(--text-secondary);"><i class="fas fa-clock"></i> ${locationDuration} here</div>` : ''}
+                            </div>
+                        </div>
+                        <div class="card-details" style="margin-top: 8px;">
+                            <div class="card-detail">
+                                ${user.charging ? '<i class="fas fa-bolt"></i>' : '<i class="fas fa-battery-three-quarters"></i>'} ${user.battery}%${user.charging ? ' ⚡' : ''}
+                            </div>
+                            <div class="card-detail"><i class="fas fa-tachometer-alt"></i> ${user.speed} mph</div>
+                            <div class="card-detail"><i class="fas fa-mobile-alt"></i> ${user.entities ? user.entities.length : 1} device${user.entities?.length > 1 ? 's' : ''}</div>
+                            <div class="card-detail"><i class="fas fa-sync"></i> ${formatTime(user.lastUpdated)}</div>
+                        </div>
+                        ${isActive ? `
+                            <div style="margin-top: 8px; padding: 8px; background: rgba(34, 197, 94, 0.1); border-radius: 4px;">
+                                <div style="font-size: 12px; color: var(--success-color);">
+                                    Active Trip: ${activeTrips[user.id].distance.toFixed(1)} mi
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function updateZonesPanel() {
+            const container = document.getElementById('zonesContent');
+            
+            if (zones.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon"><i class="fas fa-map-pin"></i></div>
+                        <div class="empty-title">No Zones</div>
+                        <div class="empty-description">Create zones to track locations</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            zones.forEach(zone => {
+                const usersInZone = users.filter(u => {
+                    const distance = calculateDistance(
+                        {lat: u.lat, lng: u.lng},
+                        {lat: zone.lat, lng: zone.lng}
+                    );
+                    return distance * 5280 <= zone.radius;
+                });
+                
+                html += `
+                    <div class="card zone-card ${zone.id === selectedZone ? 'active' : ''}" 
+                         onclick="selectZone('${zone.id}')">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <span class="zone-color" style="background: ${zone.color || '#3b82f6'}"></span>
+                                ${zone.name}
+                            </div>
+                        </div>
+                        <div class="card-details">
+                            <div class="card-detail"><i class="fas fa-circle"></i> ${zone.radius}m</div>
+                            <div class="card-detail"><i class="fas fa-users"></i> ${usersInZone.length} here</div>
+                        </div>
+                        ${usersInZone.length > 0 ? `
+                            <div style="margin-top: 8px; font-size: 11px; color: var(--text-secondary);">
+                                ${usersInZone.map(u => u.name).join(', ')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function updateDrivingPanel() {
+            const activeTripsArray = Object.values(activeTrips);
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const todaysTrips = trips.filter(t => new Date(t.startTime) >= today);
+            const todayDistance = todaysTrips.reduce((sum, t) => sum + (t.distance || 0), 0) + 
+                                 activeTripsArray.reduce((sum, t) => sum + (t.distance || 0), 0);
+            const todayDuration = todaysTrips.reduce((sum, t) => sum + (t.duration || 0), 0) + 
+                                 activeTripsArray.reduce((sum, t) => sum + ((new Date() - t.startTime) || 0), 0);
+            
+            document.getElementById('todayTrips').textContent = todaysTrips.length + activeTripsArray.length;
+            document.getElementById('todayMiles').textContent = todayDistance.toFixed(1);
+            document.getElementById('activeNow').textContent = activeTripsArray.length;
+            
+            const avgSpeed = [...todaysTrips, ...activeTripsArray].length > 0
+                ? [...todaysTrips, ...activeTripsArray].reduce((sum, t) => sum + (t.averageSpeed || t.maxSpeed || 0), 0) / 
+                  [...todaysTrips, ...activeTripsArray].length
+                : 0;
+            document.getElementById('avgSpeed').textContent = avgSpeed.toFixed(0);
+            
+            const container = document.getElementById('tripsContent');
+
+            // If no trips at all, show empty state
+            if (activeTripsArray.length === 0 && trips.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon"><i class="fas fa-car"></i></div>
+                        <div class="empty-title">No Trips</div>
+                        <div class="empty-description">Trips appear when family members drive</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            // Active trips section
+            if (activeTripsArray.length > 0) {
+                html += `<div style="margin-bottom: 16px;"><div style="font-weight: 500; margin-bottom: 8px; color: var(--success-color);"><i class="fas fa-car"></i> Currently Driving</div>`;
+                activeTripsArray.forEach(trip => {
+                    const duration = Math.floor((new Date() - trip.startTime) / 60000);
+                    html += `
+                        <div class="card active" style="border-color: var(--success-color);" onclick="selectTrip('${trip.id}')">
+                            <div class="card-header">
+                                <div>${trip.userName}</div>
+                                <div style="font-weight: bold; color: var(--success-color);">${trip.distance.toFixed(2)} mi</div>
+                            </div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">
+                                <i class="fas fa-clock"></i> ${duration} min
+                                <i class="fas fa-tachometer-alt" style="margin-left: 8px;"></i> ${Math.round(trip.maxSpeed)} mph
+                            </div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+            // Completed trips section
+            if (trips.length > 0) {
+                html += `<div><div style="font-weight: 500; margin-bottom: 8px;"><i class="fas fa-history"></i> Completed Trips</div>`;
+                // Show most recent first
+                [...trips].reverse().forEach(trip => {
+                    const durationMin = Math.round(trip.duration / 60000);
+                    const summary = trip.summary || '';
+                    html += `
+                        <div class="card" onclick="selectTrip('${trip.id}')">
+                            <div class="card-header">
+                                <div>${trip.userName}</div>
+                                <div style="font-weight: bold;">${trip.distance.toFixed(2)} mi</div>
+                            </div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">
+                                <i class="fas fa-clock"></i> ${durationMin} min
+                                <i class="fas fa-tachometer-alt" style="margin-left: 8px;"></i> ${Math.round(trip.maxSpeed)} mph
+                            </div>
+                            ${summary ? `<div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">${summary}</div>` : ''}
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+            container.innerHTML = html;
+        }
+        
+        function updateTimelinePanel() {
+            const container = document.getElementById('timelineContent');
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon"><i class="fas fa-clock"></i></div>
+                    <div class="empty-title">No Events</div>
+                    <div class="empty-description">Activity will appear here</div>
+                </div>
+            `;
+        }
+
+        /**
+         * Build and display a list of device sensors for each user. Shows battery,
+         * charging, charger type and speed sensors with their entity IDs. Useful
+         * in settings for verifying correct battery readings.
+         */
+        function loadDeviceSensors() {
+            const container = document.getElementById('sensorList');
+            if (!isConnected) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-description">Connect to Home Assistant first</div>
+                    </div>
+                `;
+                return;
+            }
+            if (!users || users.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-description">No family members detected</div>
+                    </div>
+                `;
+                return;
+            }
+            let html = '';
+            users.forEach(user => {
+                html += `<div style="margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+                            <strong style="display:block; margin-bottom:4px;">${user.name}</strong>`;
+                const sensors = user.sensors || {};
+                const lines = [];
+                if (sensors.battery_level !== undefined) {
+                    lines.push(`<div style="font-size: 12px;"><i class="fas fa-battery-half"></i> Battery: ${Math.round(sensors.battery_level)}% ${sensors.battery_state ? '(' + sensors.battery_state + ')' : ''} ${sensors.battery_sensor_id ? '[' + sensors.battery_sensor_id + ']' : ''}</div>`);
+                }
+                if (sensors.charger_type) {
+                    lines.push(`<div style="font-size: 12px;"><i class="fas fa-plug"></i> Charger: ${sensors.charger_type} ${sensors.charger_sensor_id ? '[' + sensors.charger_sensor_id + ']' : ''}</div>`);
+                }
+                if (sensors.speed !== undefined) {
+                    lines.push(`<div style="font-size: 12px;"><i class="fas fa-tachometer-alt"></i> Speed: ${sensors.speed.toFixed(1)} mph ${sensors.speed_sensor_id ? '[' + sensors.speed_sensor_id + ']' : ''}</div>`);
+                }
+                if (lines.length === 0) {
+                    lines.push(`<div style="font-size: 12px; color: var(--text-secondary);">No sensors detected</div>`);
+                }
+                html += lines.join('') + `</div>`;
+            });
+            container.innerHTML = html;
+        }
+        
+        // (removed duplicate updateNotificationsPanel definition; see earlier definition above)
+        
+        function setTimelineRange(range) {
+            timelineRange = range;
+            document.querySelectorAll('.date-btn').forEach(btn => {
+                btn.classList.remove('active');
+                btn.style.background = 'var(--bg-tertiary)';
+                btn.style.borderColor = 'var(--border-color)';
+                btn.style.color = 'var(--text-secondary)';
+            });
+            event.target.classList.add('active');
+            event.target.style.background = 'var(--primary-color)';
+            event.target.style.borderColor = 'var(--primary-color)';
+            event.target.style.color = 'white';
+            updateTimelinePanel();
+        }
+        
+        // ==========================================
+        // Storage Save Functions
+        // ==========================================
+        
+        async function saveTrips() {
+            if (storage) {
+                try {
+                    await storage.set('trips', trips);
+                } catch (error) {
+                    console.error('Error saving trips to HA:', error);
+                    localStorage.setItem('familyMapperTrips', JSON.stringify(trips));
+                }
+            } else {
+                localStorage.setItem('familyMapperTrips', JSON.stringify(trips));
+            }
+        }
+        
+        async function saveEvents() {
+            if (storage) {
+                try {
+                    await storage.set('events', zoneEvents);
+                } catch (error) {
+                    console.error('Error saving events to HA:', error);
+                    localStorage.setItem('familyMapperEvents', JSON.stringify(zoneEvents));
+                }
+            } else {
+                localStorage.setItem('familyMapperEvents', JSON.stringify(zoneEvents));
+            }
+        }
+        
+        async function saveZones() {
+            if (storage) {
+                try {
+                    await storage.set('zones', zones);
+                } catch (error) {
+                    console.error('Error saving zones to HA:', error);
+                    localStorage.setItem('familyMapperZones', JSON.stringify(zones));
+                }
+            } else {
+                localStorage.setItem('familyMapperZones', JSON.stringify(zones));
+            }
+        }
+        
+        async function saveAllSettings() {
+            config.enableTrips = document.getElementById('enableTrips').checked;
+            config.enableNotifications = document.getElementById('enableNotifications').checked;
+            config.enableAI = document.getElementById('enableAI').checked;
+            config.geminiKey = document.getElementById('geminiKey').value;
+            config.tripSpeedThreshold = parseInt(document.getElementById('tripSpeed').value);
+            config.tripStopDuration = parseInt(document.getElementById('tripStop').value);
+            config.refreshInterval = parseInt(document.getElementById('refreshInterval').value);
+            
+            const configToSave = {
+                ...config,
+                hassUrl,
+                hassToken,
+                selectedEntities
+            };
+            
+            if (storage) {
+                try {
+                    await storage.set('config', configToSave);
+                    showToast('Settings saved to Home Assistant', 'success');
+                } catch (error) {
+                    console.error('Error saving to HA storage:', error);
+                    localStorage.setItem('familyMapperConfig', JSON.stringify(configToSave));
+                    showToast('Settings saved locally', 'info');
+                }
+            } else {
+                localStorage.setItem('familyMapperConfig', JSON.stringify(configToSave));
+                showToast('Settings saved locally', 'info');
+            }
+            
+            if (config.enableAI && config.geminiKey) {
+                document.getElementById('aiStatus').style.display = 'block';
+            } else {
+                document.getElementById('aiStatus').style.display = 'none';
+            }
+            
+            updateNotificationUI();
+            startRefreshTimer();
+        }
+        
+        function toggleAISettings() {
+            const enabled = document.getElementById('enableAI').checked;
+            document.getElementById('aiSettings').style.display = enabled ? 'block' : 'none';
+        }
+        
+        // ==========================================
+        // Mock Data
+        // ==========================================
+        
+        function loadMockData() {
+            users = [
+                { id: 'person_john', name: 'John', lat: 34.0522, lng: -118.2437, battery: 88, speed: 0, state: 'home', lastUpdated: new Date(), currentLocationSince: new Date() },
+                { id: 'person_jane', name: 'Jane', lat: 34.0622, lng: -118.2537, battery: 65, speed: 32, state: 'away', lastUpdated: new Date(), currentLocationSince: new Date() },
+                { id: 'person_kid', name: 'Kid', lat: 34.0422, lng: -118.2337, battery: 92, speed: 0, state: 'school', lastUpdated: new Date(), currentLocationSince: new Date() }
+            ];
+            
+            activeTrips['person_jane'] = {
+                id: 'trip_demo',
+                userId: 'person_jane',
+                userName: 'Jane',
+                startTime: new Date(Date.now() - 600000),
+                startLocation: [34.0522, -118.2437],
+                currentLocation: [34.0622, -118.2537],
+                distance: 3.2,
+                maxSpeed: 45,
+                waypoints: [
+                    {lat: 34.0522, lng: -118.2437, timestamp: new Date(Date.now() - 600000)},
+                    {lat: 34.0572, lng: -118.2487, timestamp: new Date(Date.now() - 300000)},
+                    {lat: 34.0622, lng: -118.2537, timestamp: new Date()}
+                ],
+                status: 'active'
+            };
+            
+            const mockZones = [
+                { id: 'zone_home', name: 'Home', lat: 34.0522, lng: -118.2437, radius: 100, color: '#22c55e' },
+                { id: 'zone_work', name: 'Work', lat: 34.0622, lng: -118.2537, radius: 150, color: '#3b82f6' },
+                { id: 'zone_school', name: 'School', lat: 34.0422, lng: -118.2337, radius: 200, color: '#f97316' }
+            ];
+            
+            zones = mockZones;
+            updateZonesOnMap();
+            updateMap();
+            updatePanels();
+        }
+        
+        function updateMockData() {
+            if (users[1]) {
+                users[1].speed = 25 + Math.random() * 20;
+                users[1].lat += (Math.random() - 0.5) * 0.001;
+                users[1].lng += (Math.random() - 0.5) * 0.001;
+                users[1].battery = Math.max(20, users[1].battery - 0.1);
+            }
+            
+            processUserMovements(users);
+            updateMap();
+            updatePanels();
+        }
+        
+        // ==========================================
+        // Helper Functions
+        // ==========================================
+        
+        function formatTime(date) {
+            if (!date) return 'Unknown';
+            
+            const now = new Date();
+            const time = new Date(date);
+            const diff = now - time;
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+            
+            if (minutes < 1) return 'Just now';
+            if (minutes < 60) return `${minutes}m ago`;
+            if (hours < 24) return `${hours}h ago`;
+            if (days < 7) return `${days}d ago`;
+            
+            return time.toLocaleDateString();
+        }
+        
+        function showToast(message, type = 'info') {
+            const existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+            
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                padding: 12px 24px;
+                background: ${type === 'success' ? 'var(--success-color)' : 
+                             type === 'error' ? 'var(--error-color)' : 
+                             'var(--primary-color)'};
+                color: white;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                z-index: 9999;
+                animation: slideUp 0.3s ease;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideDown 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+        
+        // ==========================================
+        // Expose Global Functions
+        // ==========================================
+        
+        // ==========================================
+        // Expose Global Functions  
+        // ==========================================
+        // All functions need to be accessible from inline onclick handlers
+        window.toggleSidebar = toggleSidebar;
+        window.switchTab = switchTab;
+        window.toggleSection = toggleSection;
+        window.startZoneCreation = startZoneCreation;
+        window.setTimelineRange = setTimelineRange;
+        window.addNotificationRule = addNotificationRule;
+        window.saveConnection = saveConnection;
+        window.toggleEntity = toggleEntity;
+        window.saveAllSettings = saveAllSettings;
+        window.toggleAISettings = toggleAISettings;
+        window.selectUser = selectUser;
+        window.selectZone = selectZone;
+        
+        // Expose new helper functions for zone editing and notification management
+        window.editZone = editZone;
+        window.deleteZone = deleteZone;
+        window.toggleNotificationRule = toggleNotificationRule;
+        window.deleteNotificationRule = deleteNotificationRule;
+        window.editNotificationRule = editNotificationRule;
+        window.saveNotificationRules = saveNotificationRules;
+        window.loadDeviceSensors = loadDeviceSensors;
+
+        // Select and highlight a trip on the map. Highlights the selected trip's
+        // polyline and fits the map view to its bounds.
+        function selectTrip(tripId) {
+            selectedTrip = tripId;
+            // Reset styling on all trip paths
+            Object.keys(tripPaths).forEach(id => {
+                const path = tripPaths[id];
+                if (path) {
+                    path.setStyle({ color: '#aaa', weight: 3 });
+                }
+            });
+            // Highlight the selected path
+            const selectedPath = tripPaths[tripId];
+            if (selectedPath) {
+                selectedPath.setStyle({ color: 'var(--primary-color)', weight: 5 });
+                // Fit map to the path's bounds
+                try {
+                    map.fitBounds(selectedPath.getBounds(), { padding: [50, 50] });
+                } catch (e) {
+                    console.error('Failed to fit map to trip path:', e);
+                }
+            }
+        }
+
+        window.selectTrip = selectTrip;
+
+        // Initialize on load
+        window.addEventListener('load', init);
+        
+        console.log('Family Mapper AI loaded successfully');
+    </script>
+
+<script>
+(function(){
+  function yamlEscape(s){return String(s).replace(/"/g,'\"');}
+  function buildZonesYaml(zones){
+    const lines = [];
+    lines.push('# zones.yaml generated by Family Mapper');
+    lines.push('zone:');
+    (zones||[]).forEach(z=>{
+      if (z && z.name && typeof z.lat==='number' && typeof z.lon==='number'){
+        lines.push(`  - name: "${yamlEscape(z.name)}"`);
+        lines.push(`    latitude: ${z.lat}`);
+        lines.push(`    longitude: ${z.lon}`);
+        if (typeof z.radius==='number') lines.push(`    radius: ${z.radius}`);
+      }
+    });
+    return lines.join('\n') + '\n';
+  }
+
+  window.FMZ_exportYaml = function(){
+    const zones = (window._fmz_zones||[]).filter(z=>z && z.name);
+    const yaml = buildZonesYaml(zones);
+    const blob = new Blob([yaml], {type:'text/yaml'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'zones.yaml';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 500);
+    document.getElementById('fmz-status').textContent = 'Exported zones.yaml — upload to /config/zones.yaml and include it in configuration.yaml.';
+  };
+
+  window.FMZ_reloadHAZones = async function(){
+    try{
+      const r = await fmFetch(hassUrl, '/api/services/zone/reload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      if (!r.ok){
+        const t = await r.text();
+        alert('zone.reload failed: ' + r.status + '\n' + t);
+        return;
+      }
+      alert('Requested zone.reload. If YAML is included correctly, HA zones will refresh. If not, restart HA.');
+    }catch(e){
+      alert('Reload call failed: ' + e.message);
+    }
+  };
+})();
+</script>
+
+<script>
+// Legacy handler mappings to the Zones Manager (prevents ReferenceError)
+window.editZone = function(id){ if (typeof FMZ_openZoneModal==='function') { FMZ_openZoneModal(id); } else { alert('Zones UI not ready yet.'); } };
+window.deleteZone = function(id){ if (typeof FMZ_deleteZone==='function') { FMZ_deleteZone(id); } else { alert('Zones UI not ready yet.'); } };
+</script>
+</body>
+</html>
